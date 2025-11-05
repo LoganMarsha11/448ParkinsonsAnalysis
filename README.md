@@ -1,0 +1,39 @@
+### Variables excluded from data analysis:
+- ParticipantName
+- TrialName
+- Age (Categorical)
+- Sex
+- Foot
+- acctime_tkeodecomposelevel
+- acctime_tkeosensitivity
+- acctime_tkeoMAE
+- acctime_tapsforce
+- acctime_Rsquaretinsfreqfitted
+- acctime_Decaycoefficientamptap
+- acctime_Linearslopeamptap
+- acctime_Linearinterceptamptap
+- acctime_MSEexpfitamptap
+- acctime_MSElinearfitamptap
+- acctime_Power_1-4
+- gyrotime_Power_1-4
+- gyrotime_meandegreewithbumps
+- gyrotime_sddegreewithbumps
+- gyrotime_cvdegreewithbumps
+- gyrotime_numberbumps
+- gyrotimefrequency_numberinteruption
+- gyrotimefrequency_numberfreez
+- gyrotimefrequency_maxdominantfrequency
+- gyrotimefrequency_mindominantfrequency
+- gyrotimefrequency_maxdominantfrequencytime
+- gyrotimefrequency_mindominantfrequencytime
+- gyrotimefrequency_slopedominantfrequency
+- gyrotimefrequency_interceptdominantfrequency
+- gyrotimefrequency_totalTimecsainteruption
+- gyrotimefrequency_longestinteruptcsa30
+- gyrotimefrequency_deepestinterution30
+- gyrotimefrequency_longestinteruptcsa
+- gyrotimefrequency_deepestinterution
+- gyrotimefrequency_totalenergycsa
+- gyrotimefrequency_peakfreqcsa
+- gyrotimefrequency_csavariability
+- Fall risk level
