@@ -1,37 +1,66 @@
 ---
-title: "Predicting Fall Risk Through Foot Tapping Regression Analysis"
+title: "Predicting Fall Risk Through Foot Tapping  Regression Analysis"
 author: "Logan Marshall"
 format: pdf
 editor: visual
 ---
 
+**Work on both feet dataset discontinued in Mid-October. Code is not up to date.**
+
 ```{r, echo=FALSE, message=FALSE}
 library(readxl)
 
 #excel_sheets("DataAllFeatures.xlsx")
-#df <- read_excel("DataAllFeatures.xlsx", sheet = "Sheet1")
-dom_df <- read_excel("~/DataAllFeatures.xlsx", sheet = "Dominant foot")
-#ndom_df <- read_excel("~/DataAllFeatures.xlsx", sheet = "Nondominant")
+dom_df <- read_excel("DataAllFeatures.xlsx", sheet = "Dominant foot")
+ndom_df <- read_excel("DataAllFeatures.xlsx", sheet = "Nondominant")
 ```
 
-## Data Cleaning
+##Data Cleaning
 
-```{r, echo=FALSE,message=FALSE}
+```{r, message=FALSE}
 library(dplyr)
+
 dom_df <- dom_df %>% select (-`Fall risk level`)
-dom_df <- dom_df %>% select(-(ParticipantName:acctime_tkeoMAE))
-dom_df <- dom_df %>% select (-acctime_tapsforce)
-dom_df <- dom_df %>% select (-(acctime_Rsquaretinsfreqfitted:acctime_MSEexpfitamptap))
-dom_df <- dom_df %>% select (-acctime_MSElinearfitamptap)
-dom_df <- dom_df %>% select (-(gyrotime_meandegreewithbumps:gyrotime_cvdegreewithbumps))
-dom_df <- dom_df %>% select (-gyrotime_numberbumps)
-dom_df <- dom_df %>% select (-gyrotimefrequency_numberinteruption)
-dom_df <- dom_df %>% select (-gyrotimefrequency_numberfreez)
-dom_df <- dom_df %>% select(-(gyrotimefrequency_maxdominantfrequencytime:gyrotimefrequency_interceptdominantfrequency))
-dom_df <- dom_df %>% select(-(gyrotimefrequency_longestinteruptcsa30:gyrotimefrequency_csavariability))
-dom_df <- dom_df %>% select (-(acctime_Power_1:acctime_Power_4))
-dom_df <- dom_df %>% select (-(gyrotime_Power_1:gyrotime_Power_3))
-dom_df <- dom_df %>% select (-gyrotimefrequency_totalTimecsainteruption)
+
+#Participant name in dominant foot data but not in nondominant
+extra_ids <- setdiff(dom_df$ParticipantName, ndom_df$ParticipantName)
+#Remove them from dom_df
+dom_df_clean <- dom_df[!(dom_df$ParticipantName %in% extra_ids), ]
+
+#Vice versa
+nextra_ids <- setdiff(ndom_df$ParticipantName, dom_df$ParticipantName)
+ndom_df_clean <- ndom_df[!(ndom_df$ParticipantName %in% nextra_ids), ]
+
+df <- merge(dom_df_clean, ndom_df_clean, by = "ParticipantName", suffixes = c("_dom", "_ndom"))
+
+df <- df %>% select(-(ParticipantName:acctime_tkeoMAE_dom))
+df <- df %>% select (-acctime_tapsforce_dom)
+df <- df %>% select (-(acctime_Rsquaretinsfreqfitted_dom:acctime_MSEexpfitamptap_dom))
+df <- df %>% select (-acctime_MSElinearfitamptap_dom)
+df <- df %>% select (-gyrotime_numberbumps_dom)
+df <- df %>% select (-gyrotimefrequency_numberinteruption_dom)
+df <- df %>% select (-gyrotimefrequency_numberfreez_dom)
+df <- df %>% select(-(gyrotimefrequency_maxdominantfrequencytime_dom:gyrotimefrequency_interceptdominantfrequency_dom))
+df <- df %>% select(-(gyrotimefrequency_longestinteruptcsa30_dom:gyrotimefrequency_csavariability_dom))
+df <- df %>% select (-(acctime_Power_1_dom:acctime_Power_4_dom))
+df <- df %>% select (-(gyrotime_Power_1_dom:gyrotime_Power_3_dom))
+
+df <- df %>% select(-(TrialName_ndom:acctime_tkeoMAE_ndom))
+df <- df %>% select (-acctime_tapsforce_ndom)
+df <- df %>% select (-(acctime_Rsquaretinsfreqfitted_ndom:acctime_MSEexpfitamptap_ndom))
+df <- df %>% select (-acctime_MSElinearfitamptap_ndom)
+df <- df %>% select (-gyrotime_numberbumps_ndom)
+df <- df %>% select (-gyrotimefrequency_numberinteruption_ndom)
+df <- df %>% select (-gyrotimefrequency_numberfreez_ndom)
+df <- df %>% select(-(gyrotimefrequency_maxdominantfrequencytime_ndom:gyrotimefrequency_interceptdominantfrequency_ndom))
+df <- df %>% select(-(gyrotimefrequency_longestinteruptcsa30_ndom:gyrotimefrequency_csavariability_ndom))
+df <- df %>% select (-(`Gait Time_ndom`:`Age numerical_ndom`))
+df <- df %>% select (-(acctime_Power_1_ndom:acctime_Power_4_ndom))
+df <- df %>% select (-(gyrotime_Power_1_ndom:gyrotime_Power_3_ndom))
+
+df <- df %>% rename (`Gait Time` = `Gait Time_dom`)
+df <- df %>% rename (`TUG Time` = `TUG Time_dom`)
+df <- df %>% rename (`Age numerical` = `Age numerical_dom`)
 ```
 
 ## Lasso
@@ -42,10 +71,9 @@ dom_df <- dom_df %>% select (-gyrotimefrequency_totalTimecsainteruption)
 library(caret)
 set.seed(101)
 
-gait_train_index <- createDataPartition(dom_df$`Gait Time`, p = 0.7, list = FALSE)
-#gait_train_index <- createDataPartition(dom_df$Sex, p = 0.7, list = FALSE)
-gait_train_df <- dom_df[gait_train_index, ]
-gait_test_df  <- dom_df[-gait_train_index, ]
+gait_train_index <- createDataPartition(df$`Gait Time`, p = 0.7, list = FALSE)
+gait_train_df <- df[gait_train_index, ]
+gait_test_df  <- df[-gait_train_index, ]
 
 names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
 names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
@@ -98,10 +126,15 @@ rsq_train <- 1 - sse_train/sst_train
 
 rsq_train
 rmse_train
+
+sst_test <- sum((y_test - mean(y_test))^2)
+sse_test <- sum((y_test - y_pred)^2)
+rsq_test <- 1 - sse_test/sst_test
+rsq_test
 ```
 
 ```{r}
-gait_lasreg <- lm(Gait.Time ~ acctime_ITIsd + Age.numerical + acctime_Powerlog_3 + gyrotimefrequency_maxdominantfrequency + accTimeFrequency_SDSumenergy_3, data = gait_train_df)
+gait_lasreg <- lm(Gait.Time ~ acctime_ITIsd_ndom + acctime_Powerlog_4_ndom + accTimeFrequency_MeanSumenergy_4_dom, data = gait_train_df)
 summary(gait_lasreg)
 
 pred_train <- predict(gait_lasreg, newdata = gait_train_df)
@@ -118,10 +151,9 @@ rmse_test
 
 ```{r}
 set.seed(101)
-tug_train_index <- createDataPartition(dom_df$`TUG Time`, p = 0.7, list = FALSE)
-#tug_train_index <- createDataPartition(dom_df$Sex, p = 0.7, list = FALSE)
-tug_train_df <- dom_df[tug_train_index, ]
-tug_test_df  <- dom_df[-tug_train_index, ]
+tug_train_index <- createDataPartition(df$`TUG Time`, p = 0.7, list = FALSE)
+tug_train_df <- df[tug_train_index, ]
+tug_test_df  <- df[-tug_train_index, ]
 
 names(tug_train_df) <- make.names(names(tug_train_df), unique = TRUE)
 names(tug_test_df) <- make.names(names(tug_test_df), unique = TRUE)
@@ -174,52 +206,15 @@ rmse_train
 rsq_train
 ```
 
-```{r}
-tug_lasreg <- lm(TUG.Time ~ acctime_taps + acctime_ITIsd + acctime_Minsignal_2 +
-                   acctime_Powerlog_2 + acctime_Powerlog_3 +
-                   accTimeFrequency_SDSumenergy_4 +  + accTimeFrequency_SDSumenergy_1 +
-                   accTimeFrequency_SDSumenergy_2 + accTimeFrequency_SlopeSumenergy_1 +
-                   accTimeFrequency_SlopeSumenergy_3 + accTimeFrequency_SlopeSumenergy_4 +
-                   accTimeFrequency_InterceptSumenergy_1 + gyrotime_Mediansignal_1 +
-                   gyrotime_Mediansignal_3 + gyrotime_Powerlog_1 +
-                   gyrotime_cvdegreewithoutbumps + gyrotimefrequency_cvcsat +
-                   gyrofrequency_slopepsdgyro + Age.numerical,
-                 data = tug_train_df)
-summary(tug_lasreg)
-
-pred_train <- predict(tug_lasreg, newdata = tug_train_df)
-rmse_train <- sqrt(mean((tug_train_df$TUG.Time - pred_train)^2))
-
-pred_test <- predict(tug_lasreg, newdata = tug_test_df)
-rmse_test <- sqrt(mean((tug_test_df$TUG.Time - pred_test)^2))
-
-rmse_train
-rmse_test
-```
-
 ##Stepwise
 
 ##Gait Step
-
-###Backward
-
-```{r}
-#full_gait <- lm(`Gait Time` ~ ., data = reduced_train)
-#backward_gait <- step(full_gait)
-
-#summary(backward_gait)
-#vif(backward_gait)
-#plot(backward_gait)
-
-#Error in step(full_gait) : 
-  #AIC is -infinity for this model, so 'step' cannot proceed
-```
 
 ### Forward Selection
 
 ```{r}
 corr_matrix <- cor(gait_train_df[ , !(names(gait_train_df) %in% c("TUG.Time", "Gait.Time"))])
-high_corr <- findCorrelation(corr_matrix, cutoff = 0.8)
+high_corr <- findCorrelation(corr_matrix, cutoff = 0.6)
 
 predictor_names <- names(gait_train_df)[!(names(gait_train_df) %in% c("TUG.Time", "Gait.Time"))]
 reduced_predictors <- predictor_names[-high_corr]
@@ -231,26 +226,20 @@ model.empty <- lm(Gait.Time~1, data=reduced_train) #Intercept only
 forward_gait <- step(model.empty,direction = "forward",
                        scope = list(lower = model.empty, upper = full_gait)) #AIC
 summary(forward_gait)
-#vif(forward_gait)
-#plot(forward_gait)
 
+reduced_test <- gait_test_df[, c("Gait.Time", reduced_predictors)]
 
-#Predict on test set
+test_preds <- predict(forward_gait, newdata = reduced_test)
 
-test_preds <- predict(forward_gait, newdata = gait_test_df)
-
-y_true <- gait_test_df$Gait.Time
+y_true <- reduced_test$Gait.Time
 
 rmse_test <- sqrt(mean((y_true - test_preds)^2))
 rmse_test
 
-#Training predictions
 train_preds <- predict(forward_gait, newdata = reduced_train)
 
-#True training values
 y_train <- reduced_train$Gait.Time
 
-#Training RMSE
 rmse_train <- sqrt(mean((y_train - train_preds)^2))
 rmse_train
 
@@ -265,12 +254,10 @@ test_r2
 ```{r}
 mixed_gait <- step(model.empty,direction = "both", scope = list(lower = model.empty, upper = full_gait))
 summary(mixed_gait)
-#vif(mixed_gait)
-#plot(mixed_gait)
 
-test_preds <- predict(mixed_gait, newdata = gait_test_df)
+test_preds <- predict(mixed_gait, newdata = reduced_test)
 
-y_true <- gait_test_df$Gait.Time
+y_true <- reduced_test$Gait.Time
 
 rmse_test <- sqrt(mean((y_true - test_preds)^2))
 rmse_test
@@ -288,26 +275,11 @@ test_r2
 
 ##Tug Step
 
-### Backward
-
-```{r}
-
-#backward_tug <- step(full_tug)
-
-#summary(backward_tug)
-#vif(backward_tug)
-#plot(backward_tug)
-#AIC(backward_tug)
-
-#Error in step(full_tug) : 
-  #AIC is -infinity for this model, so 'step' cannot proceed
-```
-
 ### Forward Selection
 
 ```{r}
 corr_matrix <- cor(tug_train_df[ , !(names(tug_train_df) %in% c("TUG.Time", "Gait.Time"))])
-high_corr <- findCorrelation(corr_matrix, cutoff = 0.75)
+high_corr <- findCorrelation(corr_matrix, cutoff = 0.55)
 
 predictor_names <- names(tug_train_df)[!(names(tug_train_df) %in% c("TUG.Time", "Gait.Time"))]
 reduced_predictors <- predictor_names[-high_corr]
@@ -320,12 +292,11 @@ model.empty <- lm(TUG.Time~1, data=reduced_train) #Intercept only
 forward_tug <- step(model.empty,direction = "forward",
                        scope = list(lower = model.empty, upper = full_tug)) #AIC
 summary(forward_tug)
-#vif(forward_tug)
-#plot(forward_tug)
 
-test_preds <- predict(forward_tug, newdata = tug_test_df)
+reduced_test <- tug_test_df[, c("TUG.Time", reduced_predictors)] #Code line not needed
+test_preds <- predict(forward_tug, newdata = reduced_test)
 
-y_true <- tug_test_df$TUG.Time
+y_true <- reduced_test$TUG.Time
 
 rmse_test <- sqrt(mean((y_true - test_preds)^2))
 rmse_test
@@ -341,12 +312,10 @@ rmse_train
 ```{r}
 mixed_tug <- step(model.empty,direction = "both", scope = list(lower = model.empty, upper = full_tug))
 summary(mixed_tug)
-#vif(mixed_tug)
-#plot(mixed_tug)
 
-test_preds <- predict(mixed_tug, newdata = tug_test_df)
+test_preds <- predict(mixed_tug, newdata = reduced_test)
 
-y_true <- tug_test_df$TUG.Time
+y_true <- reduced_test$TUG.Time
 
 rmse_test <- sqrt(mean((y_true - test_preds)^2))
 rmse_test
@@ -381,10 +350,7 @@ best_lambda_1se <- whole_cv_lasso$lambda.1se  #1-SE rule (simpler model)
 
 lasmin <- glmnet(x,y,alpha = 0, lambda=best_lambda)
 
-#coef(lasmin)
-
 x_test <- model.matrix( ~ . - Gait.Time - TUG.Time, data = gait_test_df)
-
 y_test <- gait_test_df$Gait.Time
 
 y_pred <- predict(lasmin, s = best_lambda, newx = x_test)
@@ -427,6 +393,9 @@ best_lambda_1se <- whole_cv_lasso$lambda.1se   #1-SE rule (simpler model)
 #coef(whole_cv_lasso, s = "lambda.min")   #coefficients at best λ
 lasmin <- glmnet(x,y,alpha = 0, lambda=best_lambda)
 
+Tug_ridge_columns <- rownames(coef(lasmin))[which(coef(lasmin) != 0)]
+Tug_ridge_columns <- Tug_ridge_columns[Tug_ridge_columns != "(Intercept)"]
+
 #coef(lasmin)
 
 x_test <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time, data = tug_test_df)
@@ -448,18 +417,30 @@ rmse_train
 rsq_train
 ```
 
-## Random Forest
+## Ensemble Methods
 
 ### Gait Forest
 
 ```{r, fig.width=10, fig.height=8}
+#gaitRF <- randomForest(
+#  `Gait Time` ~ .,
+#  data = subset(gait_train_df, select = -`TUG Time`),  #remove the other response variable
+#  mtry = sqrt(ncol(gait_train_df) - 2),  #total predictors minus response and excluded var
+#  importance = TRUE
+#)
+
+#formula_terms <- attr(terms(`Gait Time` ~ ., data=gait_train_df), "term.labels")
+#data_terms <- setdiff(names(subset(gait_train_df, select = -`TUG Time`)), "Gait Time")
+
+#setdiff(formula_terms, data_terms)
+
 library(randomForest)
 set.seed(101)
-
 gaitRF <- randomForest(
   Gait.Time ~ .,
   data = subset(gait_train_df, select = -TUG.Time), #remove the other response variable
-  mtry = (ncol(gait_train_df) - 2)/3, #total predictors minus response variables/3
+  mtry = (ncol(gait_train_df) - 2)/3, #total predictors minus response and excluded var
+  #ntree=200, #error plot (OOB error vs. number of trees) shows that the preformance stablizes at 200. Not really needed, therefore I commented it out.
   importance = TRUE
 )
 gaitRF
@@ -474,26 +455,25 @@ rmse_test
 
 varImpPlot(gaitRF, n.var = 10, main = "Top 10 Variable Importances")
 
-#importance_vals <- importance(gaitRF)
+importance_vals <- importance(gaitRF)
 
 #Convert to data frame for easier sorting
-#importance_df <- data.frame(
-  #Feature = rownames(importance_vals),
-  #importance_vals
-#)
+importance_df <- data.frame(
+  Feature = rownames(importance_vals),
+  importance_vals
+)
 
-#top20 <- importance_df[order(-importance_df$X.IncMSE), ][1:20, ]
-#print(top20)
+top10 <- importance_df[order(-importance_df$X.IncMSE), ][1:10, ]
+print(top10)
 ```
 
 ### Gait Bagging
 
-```{r, fig.width=10, fig.height=8}
-set.seed(101)
+```{r}
 gaitBag <- randomForest(
   Gait.Time ~ .,
   data = subset(gait_train_df, select = -TUG.Time), #remove the other response variable
-  mtry = (ncol(gait_train_df) - 2), #total predictors minus response vars
+  mtry = (ncol(gait_train_df) - 2), #total predictors minus response and excluded var
   importance = TRUE
 )
 gaitBag
@@ -505,8 +485,6 @@ gaitBag_true <- gait_test_df$Gait.Time
 rmse_test <- sqrt(mean((gaitBag_pred - gaitBag_true)^2))
 
 rmse_test
-
-varImpPlot(gaitBag, n.var = 10, main = "Top 10 Variable Importances")
 ```
 
 ### Gait Boosting
@@ -522,12 +500,10 @@ gaitgbm <- gbm(Gait.Time ~ .,
   shrinkage = 0.01,
   cv.folds = 5)
 
-#summary(gaitgbm)
+summary(gaitgbm)
 
-set.seed(101)
 best_iter <- gbm.perf(gaitgbm, method = "cv")
 best_iter
-#338
 
 train_pred <- predict(gaitgbm, newdata = subset(gait_train_df, select = -c(Gait.Time, TUG.Time)), n.trees = best_iter)
 test_pred  <- predict(gaitgbm, newdata = subset(gait_test_df, select = -c(Gait.Time, TUG.Time)), n.trees = best_iter)
@@ -536,6 +512,7 @@ rmse_train <- sqrt(mean((train_pred - gait_train_df$Gait.Time)^2))
 rmse_test  <- sqrt(mean((test_pred  - gait_test_df$Gait.Time)^2))
 
 r2_train <- 1 - sum((gait_train_df$Gait.Time - train_pred)^2) / sum((gait_train_df$Gait.Time - mean(gait_train_df$Gait.Time))^2)
+r2_test  <- 1 - sum((gait_test_df$Gait.Time - test_pred)^2) / sum((gait_test_df$Gait.Time - mean(gait_test_df$Gait.Time))^2)
 
 rmse_train; rmse_test
 r2_train
@@ -545,11 +522,11 @@ r2_train
 
 ```{r, fig.width=10, fig.height=8}
 set.seed(101)
-
 tugRF <- randomForest(
   TUG.Time ~ .,
   data = subset(tug_train_df, select = -Gait.Time), #remove the other response variable
-  mtry = (ncol(tug_train_df) - 2)/3, #total predictors minus response vars/3
+  mtry = (ncol(tug_train_df) - 2)/3, #total predictors minus response and excluded var
+  #ntree = 200,
   importance = TRUE
 )
 tugRF
@@ -572,7 +549,7 @@ set.seed(101)
 tugBag <- randomForest(
   TUG.Time ~ .,
   data = subset(tug_train_df, select = -Gait.Time), #remove the other response variable
-  mtry = (ncol(tug_train_df) - 2), #total predictors minus response vars
+  mtry = (ncol(tug_train_df) - 2)/3, #total predictors minus response and excluded var
   importance = TRUE
 )
 tugBag
@@ -599,10 +576,9 @@ tuggbm <- gbm(TUG.Time ~ .,
   cv.folds = 5)
 
 #summary(tuggbm)
-set.seed(101)
+
 best_iter <- gbm.perf(tuggbm, method = "cv")
-best_iter
-#660
+#best_iter
 
 train_pred <- predict(tuggbm, newdata = subset(tug_train_df, select = -c(Gait.Time, TUG.Time)), n.trees = best_iter)
 test_pred  <- predict(tuggbm, newdata = subset(tug_test_df, select = -c(Gait.Time, TUG.Time)), n.trees = best_iter)
@@ -611,6 +587,7 @@ rmse_train <- sqrt(mean((train_pred - tug_train_df$TUG.Time)^2))
 rmse_test  <- sqrt(mean((test_pred  - tug_test_df$TUG.Time)^2))
 
 r2_train <- 1 - sum((tug_train_df$TUG.Time - train_pred)^2) / sum((tug_train_df$TUG.Time - mean(tug_train_df$TUG.Time))^2)
+r2_test  <- 1 - sum((tug_test_df$TUG.Time - test_pred)^2) / sum((tug_test_df$TUG.Time - mean(tug_test_df$TUG.Time))^2)
 
 rmse_train; rmse_test
 r2_train
@@ -623,6 +600,10 @@ r2_train
 ```{r}
 library(e1071)
 library(kernlab)
+set.seed(101)
+
+names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
+names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
 
 x_train <- gait_train_df[, !(names(gait_train_df) %in% c("Gait.Time", "TUG.Time"))]
 y_train <- gait_train_df$Gait.Time
@@ -631,19 +612,19 @@ x_test <- gait_test_df[, !(names(gait_test_df) %in% c("Gait.Time", "TUG.Time"))]
 y_test <- gait_test_df$Gait.Time
 
 set.seed(101)
-#train control for 10-fold cross-validation
+#Define train control for 10-fold cross-validation
 train_control <- trainControl(method = "cv", number = 10)
 
 #Tuning grid for radial kernels
 svm_grid <- expand.grid(
-  sigma = c(0.001, 0.01, 0.1),      #used only for RBF (sigma = gamma)
+  sigma = c(0.001, 0.01, 0.1),      #used only for RBF
   C = c(0.01, 0.1, 1, 10)         #cost parameter
 )
 
 x_train <- as.data.frame(x_train)
 x_test  <- as.data.frame(x_test)
 
-#Training SVM with rbf kernel
+#Training SVM with radial basis function kernel
 svm_tuned <- train(
   x = x_train,
   y = y_train,
@@ -654,8 +635,6 @@ svm_tuned <- train(
 )
 #print(svm_tuned)
 #svm_tuned$finalModel
-#sigma = 0.01, C=10
-#sigma equivalent to gamma
 
 y_train_pred <- predict(svm_tuned, newdata = x_train)
 y_test_pred  <- predict(svm_tuned, newdata = x_test)
@@ -664,14 +643,23 @@ rmse_train <- sqrt(mean((y_train - y_train_pred)^2))
 rmse_test  <- sqrt(mean((y_test - y_test_pred)^2))
 
 rsq_train <- 1 - sum((y_train - y_train_pred)^2) / sum((y_train - mean(y_train))^2)
+rsq_test  <- 1 - sum((y_test - y_test_pred)^2) / sum((y_test - mean(y_test))^2)
 
 rmse_train; rmse_test
-rsq_train
+rsq_train; rsq_test
 ```
 
 ### Tug SVM
 
 ```{r}
+set.seed(101)
+tug_train_index <- createDataPartition(df$`TUG Time`, p = 0.7, list = FALSE)
+tug_train_df <- df[tug_train_index, ]
+tug_test_df  <- df[-tug_train_index, ]
+
+names(tug_train_df) <- make.names(names(tug_train_df), unique = TRUE)
+names(tug_test_df) <- make.names(names(tug_test_df), unique = TRUE)
+
 x_train <- tug_train_df[, !(names(tug_train_df) %in% c("Gait.Time", "TUG.Time"))]
 y_train <- tug_train_df$TUG.Time
 
@@ -699,7 +687,6 @@ svm_tuned <- train(
 )
 #print(svm_tuned)
 #svm_tuned$finalModel
-#sigma =0.001, C=1
 
 y_train_pred <- predict(svm_tuned, newdata = x_train)
 y_test_pred  <- predict(svm_tuned, newdata = x_test)
@@ -708,118 +695,10 @@ rmse_train <- sqrt(mean((y_train - y_train_pred)^2))
 rmse_test  <- sqrt(mean((y_test - y_test_pred)^2))
 
 rsq_train <- 1 - sum((y_train - y_train_pred)^2) / sum((y_train - mean(y_train))^2)
+rsq_test  <- 1 - sum((y_test - y_test_pred)^2) / sum((y_test - mean(y_test))^2)
 
 rmse_train; rmse_test
-rsq_train
-```
-
-## PCR
-
-### Gait PCR
-```{r}
-results <- prcomp(gait_train_df[ , !(names(gait_train_df) %in% c("TUG.Time", "Gait.Time"))], scale. = TRUE) #12 components for both GAIT and TUG training sets
-summary(results)
-plot(results, type="lines")
-#Keep number of components such that 80% of the variance from original data is retained.
-#Scree plot says 2-3 components 
-#Kaiser criterion says 22 for gait
-#12 if we want to retain 80% of variance
-
-#head(results$rotation[, 1:3])
-
-scr <- results$x[,1:12]
-train_df <- data.frame(Gait.Time = gait_train_df$Gait.Time, scr)
-pcregmod <- lm(Gait.Time ~ ., data=train_df)
-summary(pcregmod)
-
-train_pred <- predict(pcregmod)
-train_rmse <- sqrt(mean((train_pred - train_df$Gait.Time)^2))
-train_rmse
-
-test_predictors <- gait_test_df[, !(names(gait_test_df) %in% c("TUG.Time", "Gait.Time"))]
-test_pca_scores <- predict(results, newdata = test_predictors)[, 1:12]
-
-test_df <- data.frame(Gait.Time = gait_test_df$Gait.Time, test_pca_scores)
-pcr_pred <- predict(pcregmod, newdata = test_df)
-
-
-y_test <- test_df$Gait.Time
-test_rmse <- sqrt(mean((pcr_pred - y_test)^2))
-test_rmse
-```
-### TUG PCR
-```{r}
-results <- prcomp(tug_train_df[ , !(names(tug_train_df) %in% c("TUG.Time", "Gait.Time"))], scale. = TRUE) #12 components for both GAIT and TUG training sets
-summary(results)
-plot(results, type="lines")
-#Keep number of components such that 80% of the variance from original data is retained.
-#Scree plot says 3 components 
-#Kaiser criterion says 23 tug
-#12 if we want to retain 80% of variance
-
-#head(results$rotation[, 1:3])
-
-scr <- results$x[,1:12]
-train_df <- data.frame(TUG.Time = tug_train_df$TUG.Time, scr)
-pcregmod <- lm(TUG.Time ~ ., data=train_df)
-summary(pcregmod)
-
-train_pred <- predict(pcregmod)
-train_rmse <- sqrt(mean((train_pred - train_df$TUG.Time)^2))
-train_rmse
-
-#Project test predictors using the PCA rotation from the training set
-test_predictors <- tug_test_df[, !(names(tug_test_df) %in% c("TUG.Time", "Gait.Time"))]
-test_pca_scores <- predict(results, newdata = test_predictors)[, 1:12]
-
-#pcr_pred <- predict(pcregmod, newdata = data.frame(scr = test_pca_scores))
-test_df <- data.frame(TUG.Time = tug_test_df$TUG.Time, test_pca_scores)
-pcr_pred <- predict(pcregmod, newdata = test_df)
-
-
-y_test <- test_df$TUG.Time
-test_rmse <- sqrt(mean((pcr_pred - y_test)^2))
-test_rmse
-
-#Slightly different approach than data 311 when fitting PCR. Ran into some format issues with scr previously.
-```
-
-## Gait PLSR
-```{r}
-library(pls)
-set.seed(30)
-model <- plsr(Gait.Time ~ . - Gait.Time - TUG.Time, data = gait_train_df, scale=TRUE, method="oscorespls")
-summary(model)
-#Optimal is 2 components (Lowest RMSEP)
-#Optimal is 7 components (Training/ 80% var explained)
-
-pcr_pred <- predict(model, gait_test_df, ncomp=7)
-y_test <- gait_test_df$Gait.Time
-rmse_test <- sqrt(mean((pcr_pred - y_test)^2))
-
-pcr_tr_pred <- predict(model, gait_train_df, ncomp=7)
-y_pred <- gait_train_df$Gait.Time
-rmse_train <- sqrt(mean((pcr_tr_pred - y_pred)^2))
-
-rmse_train; rmse_test
-```
-
-##TUG PLSR
-```{r}
-set.seed(30)
-model <- plsr(TUG.Time ~ . - Gait.Time - TUG.Time, data = tug_train_df, scale=TRUE, method="oscorespls")
-#Optimal is 2 components (Lowest RMSEP)
-#Optimal is 6 components (Training/ 80% var explained)
-
-pcr_pred <- predict(model, tug_test_df, ncomp=6)
-y_test <- tug_test_df$TUG.Time
-rmse_test <- sqrt(mean((pcr_pred - y_test)^2))
-
-pcr_tr_pred <- predict(model, tug_train_df, ncomp=6)
-y_pred <- tug_train_df$TUG.Time
-rmse_train <- sqrt(mean((pcr_tr_pred - y_pred)^2))
-
-rmse_train; rmse_test
+rsq_train; rsq_test
 ```
 
 ## Elastic Net
@@ -831,15 +710,14 @@ rmse_train; rmse_test
 alphas <- seq(0, 1, 0.1)
 n_iter <- 100
 
-ela_df <- dom_df 
-names(ela_df) <- make.names(names(ela_df), unique = TRUE) 
+new_df <- df
+names(new_df) <- make.names(names(new_df), unique = TRUE)
 # build one model matrix from full df to capture correct predictor names
-x_all <- model.matrix( ~ . - Gait.Time - TUG.Time, data=ela_df)[,-1]   # drop intercept
+x_all <- model.matrix(Gait.Time ~ . - Gait.Time - TUG.Time, data=new_df)[,-1]   # drop intercept
 colnames_x <- colnames(x_all)
 
 #remove columns corresponding to response vars if they slipped in
-colnames_x <- colnames_x[!colnames_x %in% c("Gait Time", "TUG Time")]
-#Unnecessary^, remove later
+colnames_x <- colnames_x[!colnames_x %in% c("Gait.Time", "TUG.Time")]
 
 # storage for feature selection counts
 feature_counts <- matrix(0, nrow = length(colnames_x), ncol = length(alphas))
@@ -857,12 +735,12 @@ colnames(rsq_results)  <- paste0("alpha_", alphas)
 for (i in 1:n_iter) {
   
   # random 70/30 split
-  gait_train_index <- createDataPartition(ela_df$Gait.Time, p = 0.7, list = FALSE)
-  gait_train_df <- ela_df[gait_train_index, ]
-  gait_test_df  <- ela_df[-gait_train_index, ]
+  gait_train_index <- createDataPartition(new_df$Gait.Time, p = 0.7, list = FALSE)
+  gait_train_df <- new_df[gait_train_index, ]
+  gait_test_df  <- new_df[-gait_train_index, ]
   
-  names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
-  names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
+  #names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
+  #names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
   
   y_train <- gait_train_df$Gait.Time
   x_train <- model.matrix(Gait.Time ~ . - Gait.Time - TUG.Time, data = gait_train_df)
@@ -873,17 +751,14 @@ for (i in 1:n_iter) {
   for (a in seq_along(alphas)) {
     alpha_val <- alphas[a]
     
-    # cross-validation for best lambda
+    #cross-validation for best lambda
     cv_fit <- cv.glmnet(x_train, y_train, alpha = alpha_val, nfolds = 10)
     best_lambda <- cv_fit$lambda.min
     
-    # fit model
     final_fit <- glmnet(x_train, y_train, alpha = alpha_val, lambda = best_lambda)
     
-    # prediction
     y_pred <- predict(final_fit, s = best_lambda, newx = x_test)
     
-    # metrics
     mse <- mean((y_test - y_pred)^2)
     rmse <- sqrt(mse)
     rsq <- 1 - sum((y_test - y_pred)^2) / sum((y_test - mean(y_test))^2)
@@ -892,7 +767,7 @@ for (i in 1:n_iter) {
     rmse_results[i, a] <- rmse
     rsq_results[i, a]  <- rsq
     
-    # track selected features (nonzero coefficients)
+    #track selected features (aka. nonzero coefficients)
     coefs <- coef(final_fit)
     selected <- rownames(coefs)[which(coefs != 0)]
     selected <- selected[selected != "(Intercept)"]
@@ -900,7 +775,7 @@ for (i in 1:n_iter) {
   }
 }
 
-# aggregate results across iterations
+#aggregate results across iterations
 avg_mse  <- colMeans(mse_results,  na.rm = TRUE)
 avg_rmse <- colMeans(rmse_results, na.rm = TRUE)
 avg_rsq  <- colMeans(rsq_results,  na.rm = TRUE)
@@ -912,32 +787,32 @@ cat("Average MSE:\n");  print(avg_mse)
 cat("\nAverage RMSE:\n"); print(avg_rmse)
 cat("\nAverage R-squared:\n"); print(avg_rsq)
 
-# top 10 most frequently selected features at best alpha
+#top 10 most frequently selected features at best alpha
 selected_freq <- feature_counts[, paste0("alpha_", best_alpha)]
 top_features <- sort(selected_freq, decreasing = TRUE)[1:10]
 
 cat("\nTop 10 selected features:\n")
 print(top_features)
+#Best Alpha 0
 
 #AI assisted with format and errors while creating this nested for loop.
 ```
 
 ```{r}
-#Best alpha: 0.3
 set.seed(101)
-gait_train_index <- createDataPartition(ela_df$Gait.Time, p = 0.7, list = FALSE)
-gait_train_df <- ela_df[gait_train_index, ]
-gait_test_df  <- ela_df[-gait_train_index, ]
+gait_train_index <- createDataPartition(new_df$Gait.Time, p = 0.7, list = FALSE)
+gait_train_df <- new_df[gait_train_index, ]
+gait_test_df  <- new_df[-gait_train_index, ]
 
 y <- gait_train_df$Gait.Time
 
 x <- model.matrix(Gait.Time ~ . - Gait.Time - TUG.Time, data=gait_train_df)
 
-whole_lasso_fit <- glmnet(x,y,alpha=0.3)
+whole_lasso_fit <- glmnet(x,y,alpha=0.1)
 
 #plot(whole_lasso_fit, xvar="lambda")
 set.seed(101)
-whole_cv_lasso <- cv.glmnet(x, y, alpha =0.3)
+whole_cv_lasso <- cv.glmnet(x, y, alpha =0.1)
 
 #plot(whole_cv_lasso)
 
@@ -949,7 +824,7 @@ best_lambda_1se <- whole_cv_lasso$lambda.1se  #1-SE rule (simpler model)
 
 #coef(whole_cv_lasso, s = "lambda.min") #coefficients at best lambda
 
-lasmin <- glmnet(x,y,alpha = 0.3, lambda=best_lambda)
+lasmin <- glmnet(x,y,alpha = 0.1, lambda=best_lambda)
 
 #coef(lasmin)
 Gait_ela_columns <- rownames(coef(lasmin))[which(coef(lasmin) != 0)]
@@ -982,8 +857,7 @@ alphas <- seq(0, 1, 0.1)
 n_iter <- 100
 
 # build one model matrix from full df to capture correct predictor names
-x_all <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time, data=ela_df)[,-1]   # drop intercept
-#x_all <- model.matrix(`TUG Time` ~ ., data=df)  
+x_all <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time, data=new_df)[,-1]   # drop intercept
 colnames_x <- colnames(x_all)
 
 # remove dummy columns corresponding to response vars if they slipped in
@@ -1005,9 +879,9 @@ colnames(rsq_results)  <- paste0("alpha_", alphas)
 for (i in 1:n_iter) {
   
   # random 70/30 split
-  tug_train_index <- createDataPartition(ela_df$TUG.Time, p = 0.7, list = FALSE)
-  tug_train_df <- ela_df[tug_train_index, ]
-  tug_test_df  <- ela_df[-tug_train_index, ]
+  tug_train_index <- createDataPartition(new_df$TUG.Time, p = 0.7, list = FALSE)
+  tug_train_df <- new_df[tug_train_index, ]
+  tug_test_df  <- new_df[-tug_train_index, ]
   
   y_train <- tug_train_df$TUG.Time
   x_train <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time, data = tug_train_df)
@@ -1018,17 +892,13 @@ for (i in 1:n_iter) {
   for (a in seq_along(alphas)) {
     alpha_val <- alphas[a]
     
-    # cross-validation for best lambda
     cv_fit <- cv.glmnet(x_train, y_train, alpha = alpha_val, nfolds = 10)
     best_lambda <- cv_fit$lambda.min
     
-    # fit model
     final_fit <- glmnet(x_train, y_train, alpha = alpha_val, lambda = best_lambda)
     
-    # prediction
     y_pred <- predict(final_fit, s = best_lambda, newx = x_test)
     
-    # metrics
     mse <- mean((y_test - y_pred)^2)
     rmse <- sqrt(mse)
     rsq <- 1 - sum((y_test - y_pred)^2) / sum((y_test - mean(y_test))^2)
@@ -1037,7 +907,6 @@ for (i in 1:n_iter) {
     rmse_results[i, a] <- rmse
     rsq_results[i, a]  <- rsq
     
-    # track selected features (nonzero coefficients)
     coefs <- coef(final_fit)
     selected <- rownames(coefs)[which(coefs != 0)]
     selected <- selected[selected != "(Intercept)"]
@@ -1045,7 +914,6 @@ for (i in 1:n_iter) {
   }
 }
 
-# aggregate results across iterations
 avg_mse  <- colMeans(mse_results,  na.rm = TRUE)
 avg_rmse <- colMeans(rmse_results, na.rm = TRUE)
 avg_rsq  <- colMeans(rsq_results,  na.rm = TRUE)
@@ -1057,7 +925,7 @@ cat("Average MSE:\n");  print(avg_mse)
 cat("\nAverage RMSE:\n"); print(avg_rmse)
 cat("\nAverage R-squared:\n"); print(avg_rsq)
 
-# top 10 most frequently selected features at best alpha
+#top 10 most frequently selected features at best alpha
 selected_freq <- feature_counts[, paste0("alpha_", best_alpha)]
 top_features <- sort(selected_freq, decreasing = TRUE)[1:10]
 
@@ -1067,11 +935,10 @@ print(top_features)
 ```
 
 ```{r}
-#Best alpha: 0.1
 set.seed(101)
-tug_train_index <- createDataPartition(ela_df$TUG.Time, p = 0.7, list = FALSE)
-tug_train_df <- ela_df[tug_train_index, ]
-tug_test_df  <- ela_df[-tug_train_index, ]
+tug_train_index <- createDataPartition(new_df$TUG.Time, p = 0.7, list = FALSE)
+tug_train_df <- new_df[tug_train_index, ]
+tug_test_df  <- new_df[-tug_train_index, ]
 
 y <- tug_train_df$TUG.Time
 
@@ -1117,245 +984,4 @@ rsq_train <- 1 - sse_train/sst_train
 
 rmse_train
 rsq_train
-```
-
-## Bland-Altman (Gait)
-```{r}
-#https://www.statology.org/bland-altman-plot-r/ 
-library(ggplot2)
-#Lasso Fitted
-observed <- gait_test_df$Gait.Time #Also y_test
-predicted <- predict(gait_lasreg, newdata = gait_test_df)
-
-BAdf <- data.frame(
-  avg = (observed + predicted) / 2,
-  diff = observed - predicted
-)
-
-colnames(BAdf) <- c("avg", "diff")
-
-#Mean bias & limits of agreement
-mean_diff <- mean(BAdf$diff)
-sd_diff <- sd(BAdf$diff)
-lower <- mean_diff - 1.96 * sd_diff
-upper <- mean_diff + 1.96 * sd_diff
-
-ggplot(BAdf, aes(x = avg, y = diff)) +
-  geom_point(size = 2, alpha = 0.7) +
-  geom_hline(yintercept = mean_diff, color = "blue", linewidth = 1) +
-  geom_hline(yintercept = lower, color = "red", linetype = "dashed") +
-  geom_hline(yintercept = upper, color = "red", linetype = "dashed") +
-  labs(
-    title = "Bland–Altman Plot: Observed vs Predicted Gait Time",
-    x = "Average of Observed and Predicted",
-    y = "Observed - Predicted"
-  ) +
-  theme_minimal(base_size = 14)
-```
-
-## Bland-Altman (TUG)
-```{r}
-#Lasso Fitted
-observed <- tug_test_df$TUG.Time #Also y_test
-predicted <- predict(tug_lasreg, newdata = tug_test_df)
-
-BAdf <- data.frame(
-  avg = (observed + predicted) / 2,
-  diff = observed - predicted
-)
-
-colnames(BAdf) <- c("avg", "diff")
-
-mean_diff <- mean(BAdf$diff)
-sd_diff <- sd(BAdf$diff)
-lower <- mean_diff - 1.96 * sd_diff
-upper <- mean_diff + 1.96 * sd_diff
-
-ggplot(BAdf, aes(x = avg, y = diff)) +
-  geom_point(size = 2, alpha = 0.7) +
-  geom_hline(yintercept = mean_diff, color = "blue", linewidth = 1) +
-  geom_hline(yintercept = lower, color = "red", linetype = "dashed") +
-  geom_hline(yintercept = upper, color = "red", linetype = "dashed") +
-  labs(
-    title = "Bland–Altman Plot: Observed vs Predicted TUG Time",
-    x = "Average of Observed and Predicted",
-    y = "Observed - Predicted"
-  ) +
-  theme_minimal(base_size = 14)
-```
-
-## SHAP
-### Gait Random Forest
-```{r}
-#library(iml)
-#library(shapper)
-#library(shapleyR)
-
-library(shapviz)
-
-X_train <- subset(gait_train_df, select = -c(Gait.Time, TUG.Time))
-
-sv <- shapviz(gaitRF, X = X_train)
-
-#Global feature importance via mean(|SHAP|)
-sv_importance(sv)
-
-
-#Does not work since shapviz does not support randomForest package
-```
-
-```{r, cache=TRUE}
-#Requires fastshap package to compute with randomForest() model
-#Fastshap has global importance built in, therefore outputting mean absolute SHAP rankings (similar to literature)
-#https://cran.r-project.org/web/packages/fastshap/fastshap.pdf
-#https://bgreenwell.github.io/fastshap/index.html
-library(shapviz)
-library(fastshap)
-
-X_train <- as.data.frame(subset(gait_train_df, select = -c(Gait.Time, TUG.Time)))
-
-pred_fun <- function(object, newdata) {
-  predict(object, newdata = as.data.frame(newdata))
-}
-
-#Compute approximate SHAP values
-shap_values <- fastshap::explain(
-  object = gaitRF,
-  feature_names = colnames(X_train),
-  newdata = X_train,
-  pred_wrapper = pred_fun,
-  X = X_train,     
-  nsim = 100  #Can increase to 200–500 for smoother results
-)
-#AI assisted with "shap_values" data
-
-sv <- shapviz(shap_values, X = X_train)
-
-#Mean absolute SHAP rankings
-sv_importance(sv)
-
-#SHAP is quite computationally expensive.
-```
-
-### TUG Random Forest
-```{r, cache=TRUE}
-library(shapviz)
-library(fastshap)
-
-X_train <- as.data.frame(subset(tug_train_df, select = -c(Gait.Time, TUG.Time)))
-
-pred_fun <- function(object, newdata) {
-  predict(object, newdata = as.data.frame(newdata))
-}
-
-#Compute approximate SHAP values
-shap_values <- fastshap::explain(
-  object = tugRF,
-  feature_names = colnames(X_train),
-  newdata = X_train,
-  pred_wrapper = pred_fun,
-  X = X_train,     
-  nsim = 100
-)
-#AI assisted with "shap_values" data
-
-sv <- shapviz(shap_values, X = X_train)
-
-#Mean absolute SHAP rankings
-sv_importance(sv)
-```
-## Exploratory Analysis
-### Pairwise
-```{r, fig.width=10, fig.height=8}
-#Exclude both response variables
-predictors <- dom_df[, !(names(dom_df) %in% c("Gait Time", "TUG Time"))]
-
-cor_vals <- cor(predictors, dom_df$`Gait Time`, use = "complete.obs") #Correlations with gait
-
-cor_vals <- as.vector(cor_vals)
-names(cor_vals) <- colnames(predictors)
-
-#Top 10 most correlated
-top10_vars <- names(sort(abs(cor_vals), decreasing = TRUE))[1:10]
-
-#Create subset for pairwise
-subset_df <- dom_df[, c("Gait Time", top10_vars)]
-
-pairs(subset_df, main = "Pairwise Plots: Top 10 Correlated Predictors with Gait Time", cex.labels = 0.55)
-```
-
-```{r, fig.width=10, fig.height=8}
-predictors <- dom_df[, !(names(dom_df) %in% c("Gait Time", "TUG Time"))]
-
-cor_vals <- cor(predictors, dom_df$`TUG Time`, use = "complete.obs")
-
-cor_vals <- as.vector(cor_vals)
-names(cor_vals) <- colnames(predictors)
-
-top10_vars <- names(sort(abs(cor_vals), decreasing = TRUE))[1:10]
-
-subset_df <- dom_df[, c("TUG Time", top10_vars)]
-
-pairs(subset_df, main = "Pairwise Plots: Top 10 Correlated Predictors with TUG Time", cex.labels = 0.55)
-```
-
-### HeatMap
-```{r, fig.width=32, fig.height=32}
-library(reshape2)
-
-cor_matrix <- cor(predictors, use = "complete.obs")
-cor_df <- melt(cor_matrix)  # melt() converts matrix to long format
-
-ggplot(cor_df, aes(x = Var1, y = Var2, fill = value)) +
-  geom_tile(color = "white") +  # white lines between tiles
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-                       midpoint = 0, limit = c(-1,1), space = "Lab",
-                       name="Pearson\nCorrelation") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
-  coord_fixed()
-#Extremely large, difficult to read. 
-```
-
-### Histograms & Violinplots
-```{r, echo=FALSE, fig.cap="Histogram of Gait Time Distribution"}
-hist(df$`Gait Time`,
-     col = "lightgreen",
-     border = "darkgreen",
-     main = "",
-     xlab = "Seconds")
-```
-
-```{r, echo=FALSE, fig.cap="Violin Plot of Gait Time Distribution"}
-ggplot(df, aes(x = "", y = `Gait Time`)) +          
-  geom_violin(fill = "lightgreen", color = "darkgreen") +
-  geom_jitter(shape = 16, color = "black", position=position_jitter(0.15)) + #width = 0.1, alpha = 0.5) + 
-  coord_flip() +                                    
-  labs(
-    #title = "Distribution of Gait Time",
-    x = "Seconds",
-    y = NULL
-  ) +
-  theme_minimal()
-```
-
-```{r,echo=FALSE, fig.cap="Histogram of TUG Time Distribution"}
-hist(df$`TUG Time`,
-        col = "lightblue",
-        border = "darkblue",
-        main = "",
-        xlab = "Seconds")
-```
-
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Violin Plot of TUG Time Distribution"}
-ggplot(df, aes(x = "", y = `TUG Time`)) +          
-  geom_violin(fill = "lightblue", color = "darkblue") +
-  geom_jitter(shape = 16, color = "black", position=position_jitter(0.15)) + #width = 0.1, alpha = 0.5) + 
-  coord_flip() +                                    
-  labs(
-    #title = "Distribution of Gait Time",
-    x = "Seconds",
-    y = NULL
-  ) +
-  theme_minimal()
 ```
