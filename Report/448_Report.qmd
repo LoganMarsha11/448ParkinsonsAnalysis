@@ -1,0 +1,876 @@
+---
+title: "Predicting Gait Time and TUG Time Using Foot-Tapping Sensor Features"
+author: "Logan Marshall"
+format:
+  pdf:
+    citation-package: biblatex
+editor: visual
+bibliography: references.bib
+csl: vancouver.csl
+---
+
+## Abstract
+
+The objective of this project is to identify safer and more accurate methods for predicting fall risk in adults by examining whether foot-tapping performance is associated with outcomes from two established functional mobility tests: 4-metre gait speed and the Timed Up and Go (TUG) test. The primary research question is: *Which foot-tapping feature set best predicts gait time and TUG time?* A variety of modelling approaches were applied, including stepwise regression, regularization methods, ensemble learning, kernel-based models, and dimensionality-reduction techniques. Visual analyses, including Bland–Altman plots, were also used to evaluate model agreement. Overall, the nondominant-foot dataset produced the strongest predictive models. A linear model containing the nonzero Lasso-selected coefficients achieved the best performance for gait time, with an average prediction error of 0.795 seconds. For TUG time, the random forest model yielded the lowest error, with an average prediction error of approximately 2.5 seconds. These findings demonstrate the feasibility of using high-dimensional wearable-sensor data to support accurate and interpretable predictions of clinically relevant mobility assessments.
+
+## Introduction
+
+The 4-metre gait speed test requires a participant to walk a straight 4-metre path at their usual comfortable pace from a static start on a flat surface, using their walking aid if needed. Timing begins when the first foot crosses the start line and ends when the first foot crosses the 4-metre mark [@bohannon2019four]. Gait speed is a strong predictor of mobility status and fall risk in older adults.
+
+The TUG test measures the time taken for an individual to rise from a standard armchair, walk 3 meters, turn around, return to the chair, and sit down again at a comfortable and safe pace. Participants wear their usual footwear and may use any walking aid without receiving physical assistance. Before timing, a practice trial is performed to ensure familiarity with the task [@podsiadlo1991timed].
+
+Data was collected from 85 adults without Parkinson’s disease, approximately three-quarters of whom were classified as older adults ($\ge 65$ years). Each participant wore foot-mounted sensors equipped with 3-axis inertial measurement units (IMUs), generating six signals in total (three gyroscope axes and three accelerometer axes). From these measurements, 179 engineered features were extracted in MATLAB, capturing time- and frequency-domain characteristics in each plane, as well as magnitude-based metrics.
+
+Although many of these engineered features are highly correlated, model accuracy remains the primary priority. While reducing multicollinearity is beneficial, our focus is on minimizing root mean squared error (RMSE) to best assess predictive performance. RMSE is a common regression metric defined as the square root of the average squared difference between predicted and observed values, providing a direct measure of a model’s typical prediction error [@james2013introduction]. Multiple modelling approaches are explored in this project, including filter- and wrapper-based feature selection methods, ensemble learning, regularization techniques, kernel methods, and dimensionality reduction strategies, in order to identify the optimal feature subset and model for predicting gait time and TUG time.
+
+## Methods
+
+*Data Cleaning and Preprocessing*
+
+The dataset was originally provided in two separate sheets: one containing measurements from participants performing the foot-tapping test with their dominant foot and the other with their nondominant foot. These time-series signals were processed to derive a large set of statistical features describing movement dynamics. Most participants completed both experiments, resulting in 84 observations for the dominant foot and 81 for the nondominant. The difference in sample sizes is due to the removal of faulty or excessively noisy observations to ensure data accuracy and integrity. Irrelevant columns that did not contribute to addressing the research questions were also removed using the **dplyr** package, reducing the total number of variables from 179 to 138. After excluding several categorical or classification features, the dataset consisted solely of numerical predictors suitable for regression analysis.
+
+For analyses involving both the dominant and non-dominant feet, only participants with data available for both feet were retained to ensure consistency across datasets. This filtering step reduced the participant pool from 85 to 80 individuals. In all other analyses focused on a single foot, all available participants were included. The data was then partitioned into training (70%) and testing (30%) subsets using the **caret** package. Separate partitions were created for the two response variables, Gait Time and TUG Time, to enable independent model development and evaluation. To address multicollinearity among predictors, a correlation-based feature reduction was applied to the training dataset specifically for the stepwise regression models, which assume low intercorrelation among predictors. For each model, a correlation matrix was computed among all predictor variables in the training set. Starting with a high correlation threshold of 0.95, the cutoff was iteratively lowered in steps of 0.05 until stepwise regression was able to execute successfully. This process yielded a final cutoff of 0.8 for Gait and 0.75 for TUG. For analyses involving both the dominant and non-dominant feet, stepwise regression could not be applied, as the combination of predictors from both feet created an excessive number of columns relative to the number of observations. Accommodating would require lowering the correlation cutoff to a level that would remove too many important predictors, potentially discarding critical information. Predictor pairs exceeding these thresholds were reduced using the `findCorrelation()` function from the **caret** package, which removes the variable more highly correlated with the rest of the predictors. This feature reduction decreased redundancy, resolved aliasing issues, and reduced dimensionality to a level where the number of predictors was only slightly greater than the number of observations, enabling stepwise regression to run properly. For our other models, this feature reduction step was not necessary.
+
+The configuration where dominant and nondominant foot features were merged into a single model did not yield improved predictive performance, with RMSE values consistently worse than the individual-foot models. As a result, analyses in this report focus solely on the models trained separately for each foot.
+
+*Stepwise*
+
+Applied forward selection and mixed stepwise regression on the pre-filtered dataset using the `step()` function from R’s **stats** package, with Akaike Information Criterion (AIC) as the selection criterion. The model search explored a range from an intercept-only model to a full model containing all predictor variables. Due to the dataset’s high dimensionality, more features than observations despite filtering highly correlated variables (\>0.8 for Gait Time, \>0.75 for TUG Time), methods like backward elimination and recursive feature elimination could not be computed. Forward and mixed selection, which start from a smaller model, were able to handle this scenario without issue.
+
+*Lasso*
+
+Applied Lasso regression to the original 136 predictor variables using the **glmnet** package, setting $\alpha$ = 1 and performing 10-fold cross-validation on the training set to identify the optimal regularization parameter. The optimal lambda was chosen, corresponding to the minimum cross-validated mean squared error. All predictors were automatically standardized by **glmnet** prior to fitting.
+
+*Ridge*
+
+Ridge regression was applied to the full set of predictors using the **glmnet** package, setting $\alpha$ = 0 to implement pure Ridge regularization. Predictors were standardized by **glmnet** prior to fitting. 10-fold cross-validation was used to identify the optimal penalty parameter corresponding to the minimum cross-validated mean squared error. Unlike Lasso, Ridge does not perform feature selection, but it is particularly effective when dealing with multicollinearity or when the number of predictors exceeds the number of observations [@chan2022mitigating].
+
+*Elastic Net*
+
+An Elastic Net regression was used to predict the response variable, combining Lasso and Ridge regularization to balance feature selection and coefficient shrinkage. The model was trained across $\alpha$ values from 0 to 1 (in 0.1 increments), with each configuration evaluated using 100 random 70/30 train and test splits. For each split, a **glmnet** 10-fold cross-validation identified the optimal penalty parameter lambda that minimized cross-validation error. Train set RMSE was computed for performance assessment, and feature selection was tracked across runs. The alpha with the lowest average RMSE was chosen as optimal. Finally, using a fixed seed for reproducibility, the model was recomputed with the best alpha, and its predictive accuracy was evaluated on both the training and test sets. This approach of elastic net was performed in similar literature [@choi2021wearable].
+
+*Random Forest*
+
+A random forest model was trained on the training set using the **randomForest** package, with Gait/TUG time as the response variable and the unused dependent variable removed from the predictors. The number of candidate variables considered at each split was set to the default m = p/3 where p = 136 represents the number of predictor set, and 500 trees were grown to ensure the out-of-bag (OOB) error estimate stabilized. Variable importance was computed using both the percentage increase in mean squared error (%IncMSE) and the increase in node purity (IncNodePurity), and the top ten predictors were visualized using a variable importance plot.
+
+*Bagging*
+
+A bagged ensemble model was trained using the **randomForest** package with the same data preparation procedure as the random forest model, excluding gait or TUG from the predictors. The number of candidate variables considered at each split was set to the total number of predictors m=p, effectively performing bootstrap aggregation bagging without random feature selection. As with the random forest, 500 trees were grown and variable importance was computed.
+
+*Boosting*
+
+Boosting was implemented using the **gbm** package with a Gaussian distribution and 5-fold cross-validation to determine the optimal number of trees. The model was initially trained with 5000 trees, a learning rate (shrinkage) of 0.01, and an interaction depth of 1, corresponding to simple additive (stump-based) models. The optimal number of trees for each foot separately was then used to generate predictions on both the training and test sets.
+
+*Support Vector Machines*
+
+Support Vector Machines were implemented using the **e1071** and **kernlab** packages. Both linear and radial basis function (RBF) kernels were initially explored, with the RBF kernel selected for its greater flexibility and the inclusion of an additional hyperparameter, gamma ($\gamma$), which allowed for finer control over model complexity. A 10-fold cross-validation grid search was performed to identify the optimal combination of gamma and cost (C) values based on the lowest cross-validation RMSE, testing gamma set {0.001, 0.01, 0.1} and C set {0.01, 0.1, 1, 10}. Selected these particular values to include in the set as they were commonly found in literature [@james2013introduction].
+
+*Principal Component Regression*
+
+Principal Component Regression (PCR) was performed on the dataset using the **prcomp** function, with all predictor variables scaled and response variables excluded. To determine the number of components to retain, multiple criteria were compared. The Kaiser criterion suggested keeping components with eigenvalues greater than one, while the scree plot provided a visual “elbow” point indicating where the marginal gain in explained variance begins to level off. Additionally, a threshold of approximately 80% cumulative variance explained was considered to ensure that a substantial portion of the variability in the training data was captured, consistent with similar literature [@rahmat2024supervised]. The selected principal components were then used in a linear model to predict the response variable. Model performance was evaluated on the training set and projected onto the test set using the principal component analysis rotation derived from the training data.
+
+*Partial Least Squares Regression*
+
+Used Partial Least Squares Regression (PLSR) to predict gait and TUG time using the **pls** package with the orthogonal scores algorithm `(‘oscorespls’)`, ensuring stable computation of components under high collinearity, scaling all predictors and excluding the response variables. Unlike PCR, PLSR identifies components that simultaneously capture variance in the predictors and maximize covariance with the response, allowing for a more efficient dimensionality reduction [@boulesteix2007partial].
+
+*Bland-Altman Analysis*
+
+A Bland-Altman analysis was used to assess the agreement between the predicted values from the model and the corresponding actual measurements. This method is widely applied in similar literature when comparing predicted versus observed TUG performance [@choi2021wearable]. In this study, Bland-Altman plots were generated for both TUG and gait to evaluate the reliability of the developed models.
+
+For each plot, the mean difference (bias) between predicted and actual values was calculated, along with the 95% limits of agreement defined as bias ± 1.96 × SD(differences). The bias is shown as a solid line, and the limits of agreement are shown as dashed lines. These limits represent the expected range within which most prediction errors should fall under normal model performance.
+
+## Gait Results
+
+*Results for the gait time models are presented in Table 1 (dominant foot) and Table 3 (nondominant foot).*
+
+*Stepwise*
+
+After the correlation filter, 75 features remained for the dominant foot and 68 for the nondominant foot. Forward and mixed stepwise produced highly similar models. For the dominant foot, both methods selected the same 8 predictors; for the nondominant foot, mixed stepwise selected 20 and forward selected 17. Mixed stepwise slightly reduced training RMSE and improved adjusted R-squared ($R^2_{Train, Adj}$), while forward selection had the lower test RMSE.
+
+*Lasso*
+
+Lasso performed very effectively in reducing the dimensionality of the dataset, selecting only 5 features for both feet out of the original 136 predictors at optimal $\lambda$ = 0.1944252 (dominant) and $\lambda$ = 0.2026074 (nondominant). Predictive performance was strong, with test RMSE among the best observed across all models. To further assess the impact of variable selection, the selected features from Lasso were fitted in a standard linear model. The training fit improved slightly, while the test RMSE increased minimally (less than a 0.1 change for the dominant and only 0.022 for the nondominant foot). A deeper examination of the summary table for the nondominant linear model (Table 5) shows that only one feature, the standard deviation of the intertap interval from the accelerometer (acctime_ITIsd), was statistically significant along with the intercept ($\alpha$ = 0.05). The overall model p-value was extremely small, indicating that the regression model as a whole was significant.
+
+
+*Ridge*
+
+Ridge regression produced the lowest test RMSE among all gait models, using $\lambda$ = 9.904288 (dominant) and $\lambda$ = 14.97415 (nondominant). Ridge retained all predictors and produced stable predictions across both feet.
+
+*Elastic Net*
+
+The average RMSE for all alpha values were very similar. However it was identified that 0.3 and 0 were the optimal values for dominant and nondominant. For the fixed seed retrain, I decided to use 0.1 instead of 0 for nondominant since ridge regression is already represented in our results table, as this was the alpha with the second lowest RMSE and a better representative of elastic net regularization. Both elastic net simulations did not perform better than their respective ridge regression in terms of test set RMSE.
+
+*Random Forest*
+
+Random forest produced moderate training fit but competitive test RMSE, slightly behind Ridge for the nondominant foot. Some noticeably influential variables (in terms of percent increase in Mean Squared Error) for dominant foot in the importance plot were coefficient of variation and standard deviation of the intertap interval features (acctime_ITIcv, acctime_ITIsd), Age , Standard deviation of summed foot-tapping energy over time in the z-axis (accTimeFrequency_SDSumenergy_3), and Kurtosis signal in the x-axis (acctime_Kurtosissignal_1). Three stand out important features for the nondominant foot (shown in figure 3) is the minimum and variance signal in the z-axis (acctime_Minsignal_3, acctime_Varsignal_3) as well as standard deviation of summed foot-tapping energy over time in the y-axis (accTimeFrequency_SDSumenergy_2). All top ten features (in terms of %IncMSE) in figure 1 and 3 were extracted from the accelerometer. 
+
+*Bagging*
+
+The model’s performance on the test set was very similar to that of the random forest, showing limited improvement and overall weaker predictive accuracy compared to ridge regression. The variable importance plot also revealed many of the same influential features as those identified by the random forest model.
+
+*Boosting*
+
+Cross-validation selected 338 trees for the dominant foot and 118 for the nondominant foot, which was then used for predictions. Boosting achieved the lowest test error among most ensemble methods, outperforming both random forest and Bagging for the dominant dataset.
+
+*Support Vector Machines*
+
+For the dominant foot, $\gamma$ = 0.01 and C = 10 produced the best performance. For the nondominant foot, $\gamma$ = 0.001 and C = 1 produced the lowest test RMSE of all possible combinations from the grid search.
+
+*Principal Component Analysis*
+
+The Kaiser criterion retained 22 components, while the scree plot showed no clear elbow point but suggested roughly 2–3 components. To capture a substantial portion of the variance, selected 12 components, which explained approximately 80% of the variance in the training data. These 12 principal components were fitted in a linear model predicting gait time. Only two components were statistically significant, although the overall model provided one of the better predictive performances for the dominant foot, while predictions for the nondominant foot were less accurate. 
+
+*Partial Least Squares Regression*
+
+Seven components were required to capture roughly 80% variance. PLSR models showed a large difference between training and test RMSE.
+
+*Bland-Altman*
+
+For gait time, the Bland–Altman plot for one of the best-performing models (the nondominant LASSO-fitted model) is shown in Figure 5. The mean bias is slightly below zero, and all observations fall within the 95% limits of agreement. The spread of the differences increases as the average gait time increases, with points appearing more dispersed at higher values.
+
+## TUG Results
+
+*Results for the TUG time models are presented in Table 2 (dominant foot) and Table 4 (nondominant foot).*
+
+*Stepwise*
+
+After correlation filtering, 61 features were retained for dominant and 57 for nondominant foot. Both forward and mixed stepwise approaches produced nearly identical models, with the forward method selecting 12 features, just one more than mixed for dominant feet. While the two stepwise methods obtained the same 13 features for nondominant.
+
+*Lasso*
+
+Lasso effectively reduced the dimensionality of the dataset, selecting 19 features for the dominant foot at $\lambda$ = 0.340021 and 24 features at $\lambda$ = 0.2707325 for the nondominant foot out of the original 136 predictors. While the model demonstrated reasonable predictive performance, its test RMSE was higher than that of several ensemble methods, suggesting somewhat lower generalization capability. When the nonzero coefficients from Lasso were refitted into a standard linear model, the test RMSE for dominant foot increased substantially, indicating that the shrinkage imposed by Lasso played a critical role in maintaining predictive stability.
+
+*Ridge*
+
+The Ridge model showed comparable results to Lasso, delivering solid predictive performance across both training and test sets, specifically for the nondominant dataset. However, its test RMSE remained slightly higher than those achieved by the ensemble approaches. These models were obtained at $\lambda$ = 21.8568 for dominant and $\lambda$ = 23.00559 for nondominant. 
+
+*Elastic Net*
+
+The dominant foot achieved its best performance at $\alpha$ = 0.1, while the nondominant foot performed best at $\alpha$ = 0, though all configurations for the dominant foot produced test RMSE values within 0.1 of each other. Once again, for the fixed seed retrain, I decided to use 0.1 instead of 0 for better representation. Both elastic net models outperformed lasso, but were not as accurate as the ensemble methods.
+
+*Random Forest*
+
+Random forest achieved the lowest test RMSE across all models, making it one of the strongest predictive approaches for TUG Time. Presented in Figures 2 and 4, the most influential features for the dominant foot (based on percent increase in Mean Squared Error) were age, the mean intertap interval (acctime_ITImean), and the minimum and variance of the accelerometer’s z-axis signal (acctime_Minsignal_3, acctime_Varsignal_3). For the nondominant foot, Age and the minimum and variance of the z-axis signal were again among the top predictors, along with the log-transformed power in the z-axis and magnitude (acctime_Powerlog_3, acctime_Powerlog_4). Gyroscope-derived features were also more prominent in the TUG models compared to the gait random forest models.
+
+*Bagging*
+
+Bagging achieved the second-lowest test RMSE behind random forest, while still exhibiting low training variance ($R^2_{Train, Adj}$).
+
+*Boosting*
+
+Cross-validation identified the optimal number of trees as 660 for the dominant foot and 417 for the nondominant foot. Boosting produced predictive results slightly behind the other ensemble methods but still among the top-performing models overall.
+
+*Support Vector Machines*
+
+The dominant foot achieved its best performance with $\gamma$ = 0.001 and C = 1, while the nondominant foot performed best with $\gamma$ = 0.01 and C = 10. However, the nondominant model displayed classic overfitting. In contrast, the dominant foot model demonstrated a more balanced generalization.
+
+*Principal Component Regression*
+
+The Kaiser criterion suggested retaining 22–23 components for the dominant and nondominant feet, while the scree plot indicated an elbow point around 2–3 components for both. To capture a substantial portion of the variance, 12 components were selected to explain 80% of the total variance in the training data. The 12 components were then used in a linear model predicting TUG Time, and 4–5 of them were found to be statistically significant based on their p-values.
+
+*Partial Least Square Regression*
+
+For PLSR, the optimal number of components was identified as six for the dominant foot and five for the nondominant foot; this amount was required to capture approximately 80% of the variance in the training data. Similar to the gait time models, the PLSR models for TUG exhibited classic overfitting, with substantially lower training RMSE compared to the test RMSE.
+
+*Bland-Altman*
+
+For TUG time, the Bland–Altman plot for the best-performing model (the nondominant random forest model) is shown in Figure 6. The mean bias is slightly below zero, and the differences remain relatively stable across the range of average TUG values. Two observations fall outside the 95% limits of agreement, while all remaining points lie within the expected range.
+
+## Discussion
+
+*For further interpretation, we will mainly focus on the nondominant foot results because they achieved lower test RMSE and therefore provided stronger predictive performance.*
+
+The additional features in the mixed stepwise model slightly improved variance explained, reducing training RMSE and increasing $R^2_{Train, Adj}$. However, forward selection produced a lower test RMSE, indicating better generalization to unseen data. Overall, stepwise regression offered a balance between interpretability and predictive accuracy in this high-dimensional setting. Both approaches showed signs of overfitting, achieving low training RMSE but noticeably higher test RMSE, suggesting that stepwise procedures, while useful for variable reduction, may have limited generalizability for predicting gait and TUG time.
+
+For the gait model, Lasso regression performed well: the nearly identical test RMSE between the Lasso model and the refitted linear model suggests that the simplified linear version preserved predictive accuracy while drastically reducing the number of features. In contrast, the TUG Lasso model showed weaker predictive performance. When the nonzero coefficients were refitted into a standard linear model, test RMSE increased more noticeably, indicating that the shrinkage imposed by Lasso was essential for stabilizing predictions.
+
+Ridge regression did not reduce the number of predictors and explained less variance in the training set than some alternatives, but it provided stable and accurate predictions. Ridge achieved the lowest test RMSE for the gait model, though it underperformed relative to ensemble methods for TUG. This suggests that Ridge captured much of the underlying signal but may not generalize as effectively as more flexible models in certain settings.
+
+Elastic Net closely mirrored the results of the Lasso model for gait. For TUG and gait, the nondominant Elastic Net models did not outperform Ridge in terms of test RMSE, though Elastic Net offered a modest improvement over Lasso for TUG time. Both approaches provided a balance between sparsity and predictive consistency.
+
+Across the three ensemble methods tested, performance was relatively similar, with random forest yielding the strongest generalization to unseen data. These findings reinforce that ensemble approaches consistently achieved the best predictive accuracy for TUG time compared to all other modeling techniques. Notably, most influential features from random forest originated from the accelerometer, while gyroscope-derived variables were less impactful than expected. Time-domain features also appeared more influential than frequency- or time-frequency–based variables. This indicates that basic movement magnitude and time-based characteristics provide stronger predictive information for TUG and gait time than more complex frequency or time–frequency features. Despite strong predictive performance, the random forest model explained relatively little variance in the training set, indicating a model that generalized well but did not capture as much within-sample structure as other methods.
+
+Grid search results for the nondominant foot showed that the gait random forest model produced a balanced fit with strong predictive performance, second only to Ridge regression. In contrast, the TUG random forest model showed extreme overfitting, with near-perfect $R^2_{Train, Adj}$ and substantially high test RMSE, and would not be considered a reliable predictive model.
+
+For dimensionality reduction approaches, PCR and PLSR achieved some of the lowest training RMSE values. PLSR in particular showed exceptionally strong training performance with less components making this method more efficient than PCR; however, the large gap between train and test RMSE indicated substantial overfitting. PCR provided reasonable predictive performance while reducing dimensionality, but it did not surpass the stronger regularization or ensemble approaches. Overall, PLSR offered a compact representation of the data but generalized less effectively than PCR.
+
+The Bland–Altman plot for gait time showed that the best linear model (the non-zero-coefficients fitted model) slightly overpredicted on average, though the overall bias was minimal. The spread of differences increased at higher gait times, suggesting some degree of heteroskedasticity and indicating that the model performed less consistently for participants with longer gait times. A similar pattern was suggested in the residual diagnostic plots, which showed mild increases in variance at larger fitted values.
+
+However, this behaviour was not substantial. The Scale–Location plot (Figure 7) did not provide strong evidence of heteroskedasticity. Although the LOESS curve displayed slight curvature, the variance of the residuals increased slightly across fitted values, but the change was small (approximately 0.5 to 1) and not large enough to suggest problematic heteroskedasticity. Overall, the assumption of constant variance was considered acceptable.
+
+In contrast, the Bland–Altman plot for TUG time using the nondominant random forest model showed minimal overprediction, with relatively stable differences across the range of averages. Although two observations fell outside the limits of agreement, the overall error structure appeared more uniform than in the gait time model.
+
+
+## Conclusion
+
+For gait time, the nondominant Lasso-selected linear model provided the best balance between interpretability and predictive performance. This model achieved an average prediction error of 0.795 seconds, indicating strong accuracy while using only 5 predictors compared to the 136 required by Ridge regression. Although Ridge achieved the lowest test RMSE, the small improvement in accuracy did not outweigh the substantial gain in model simplicity and interpretability offered by Lasso. Consequently, the Lasso-based linear model is more practical and well-suited for clinical or applied settings.
+
+For TUG time, the nondominant-foot random forest model delivered the strongest predictive performance on unseen data, with an average prediction error of approximately 2.5 seconds. While this value appears larger than the gait time RMSE, it is proportional to the substantially longer duration of the TUG test, making the model’s accuracy reasonable in context. Although random forest does not provide interpretable coefficients or p-values, its variable importance measures identified the most influential features, offering meaningful insight into the movement characteristics associated with TUG performance.
+
+Together, these findings illustrate the complementary strengths of sparse linear models and ensemble methods for predicting functional mobility outcomes from high-dimensional wearable-sensor data.
+
+\pagebreak
+
+## Appendix
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(readxl)
+
+dom_df <- read_excel("DataAllFeatures.xlsx", sheet = "Dominant foot")
+ndom_df <- read_excel("DataAllFeatures.xlsx", sheet = "Nondominant")
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+library(dplyr)
+
+dom_df <- dom_df %>% select (-`Fall risk level`)
+dom_df <- dom_df %>% select(-(ParticipantName:acctime_tkeoMAE))
+dom_df <- dom_df %>% select (-acctime_tapsforce)
+dom_df <- dom_df %>% select (-(acctime_Rsquaretinsfreqfitted:acctime_MSEexpfitamptap))
+dom_df <- dom_df %>% select (-acctime_MSElinearfitamptap)
+dom_df <- dom_df %>% select (-(gyrotime_meandegreewithbumps:gyrotime_cvdegreewithbumps))
+dom_df <- dom_df %>% select (-gyrotime_numberbumps)
+dom_df <- dom_df %>% select (-gyrotimefrequency_numberinteruption)
+dom_df <- dom_df %>% select (-gyrotimefrequency_numberfreez)
+dom_df <- dom_df %>% select(-(gyrotimefrequency_maxdominantfrequencytime:gyrotimefrequency_interceptdominantfrequency))
+dom_df <- dom_df %>% select(-(gyrotimefrequency_longestinteruptcsa30:gyrotimefrequency_csavariability))
+dom_df <- dom_df %>% select (-(acctime_Power_1:acctime_Power_4))
+dom_df <- dom_df %>% select (-(gyrotime_Power_1:gyrotime_Power_3))
+dom_df <- dom_df %>% select (-gyrotimefrequency_totalTimecsainteruption)
+
+ndom_df <- ndom_df %>% select(-(ParticipantName:acctime_tkeoMAE))
+ndom_df <- ndom_df %>% select (-acctime_tapsforce)
+ndom_df <- ndom_df %>% select (-(acctime_Rsquaretinsfreqfitted:acctime_MSEexpfitamptap))
+ndom_df <- ndom_df %>% select (-acctime_MSElinearfitamptap)
+ndom_df <- ndom_df %>% select (-(gyrotime_meandegreewithbumps:gyrotime_cvdegreewithbumps))
+ndom_df <- ndom_df %>% select (-gyrotime_numberbumps)
+ndom_df <- ndom_df %>% select (-gyrotimefrequency_numberinteruption)
+ndom_df <- ndom_df %>% select (-gyrotimefrequency_numberfreez)
+ndom_df <- ndom_df %>% select(-(gyrotimefrequency_maxdominantfrequencytime:gyrotimefrequency_interceptdominantfrequency))
+ndom_df <- ndom_df %>% select(-(gyrotimefrequency_longestinteruptcsa30:gyrotimefrequency_csavariability))
+ndom_df <- ndom_df %>% select (-(acctime_Power_1:acctime_Power_4))
+ndom_df <- ndom_df %>% select (-(gyrotime_Power_1:gyrotime_Power_3))
+ndom_df <- ndom_df %>% select (-gyrotimefrequency_totalTimecsainteruption)
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+library(caret)
+set.seed(101)
+
+gait_train_index <- createDataPartition(dom_df$`Gait Time`, p = 0.7, list = FALSE)
+gait_train_df <- dom_df[gait_train_index, ]
+gait_test_df  <- dom_df[-gait_train_index, ]
+
+names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
+names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+y <- gait_train_df$Gait.Time
+
+x <- model.matrix(Gait.Time ~ . - Gait.Time - TUG.Time, data=gait_train_df)
+
+library(glmnet)
+whole_lasso_fit <- glmnet(x,y,alpha=1)
+
+#plot(whole_lasso_fit, xvar="lambda")
+set.seed(101)
+whole_cv_lasso <- cv.glmnet(x, y, alpha = 1)
+
+#plot(whole_cv_lasso)
+
+#best lambdas
+best_lambda <- whole_cv_lasso$lambda.min  #lambda that minimizes CV error/test MSE
+best_lambda_1se <- whole_cv_lasso$lambda.1se  #1-SE rule (simpler model)
+#best_lambda
+#best_lambda_1se
+
+#coef(whole_cv_lasso, s = "lambda.min") #coefficients at best lambda
+
+lasmin <- glmnet(x,y,alpha = 1, lambda=best_lambda)
+
+gait_coef <- coef(lasmin)
+
+#coef(lasmin)
+Gait_Las_columns <- rownames(coef(lasmin))[which(coef(lasmin) != 0)]
+Gait_Las_columns <- Gait_Las_columns[Gait_Las_columns != "(Intercept)"]
+
+x_test <- model.matrix( ~ . - Gait.Time - TUG.Time, data = gait_test_df)
+y_test <- gait_test_df$Gait.Time
+
+y_pred <- predict(lasmin, s = best_lambda, newx = x_test)
+
+lasmin_dg <- lasmin
+best_lamdg <- best_lambda
+x_testdg <- x_test
+
+rmse_test <- sqrt(mean((y_test - y_pred)^2))
+#rmse_test
+
+y_train_pred <- predict(lasmin, s = best_lambda, newx = x)
+
+rmse_train <- sqrt(mean((y - y_train_pred)^2))
+sst_train <- sum((y - mean(y))^2)
+sse_train <- sum((y - y_train_pred)^2)
+rsq_train <- 1 - sse_train/sst_train
+
+#rsq_train
+#rmse_train
+
+sst_test <- sum((y_test - mean(y_test))^2)
+sse_test <- sum((y_test - y_pred)^2)
+rsq_test <- 1 - sse_test/sst_test
+#rsq_test
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+set.seed(101)
+tug_train_index <- createDataPartition(dom_df$`TUG Time`, p = 0.7, list = FALSE)
+tug_train_df <- dom_df[tug_train_index, ]
+tug_test_df  <- dom_df[-tug_train_index, ]
+
+names(tug_train_df) <- make.names(names(tug_train_df), unique = TRUE)
+names(tug_test_df) <- make.names(names(tug_test_df), unique = TRUE)
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+y <- tug_train_df$TUG.Time
+
+x <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time, data=tug_train_df)
+
+whole_lasso_fit <- glmnet(x,y,alpha=1)
+
+#plot(whole_lasso_fit, xvar="lambda")
+
+set.seed(101)
+whole_cv_lasso <- cv.glmnet(x, y, alpha = 1)
+
+#plot(whole_cv_lasso)
+
+#best lambdas
+best_lambda <- whole_cv_lasso$lambda.min       #λ that minimizes CV error
+best_lambda_1se <- whole_cv_lasso$lambda.1se   #1-SE rule (simpler model)
+#best_lambda
+#best_lambda_1se
+
+#coef(whole_cv_lasso, s = "lambda.min")   #coefficients at best λ
+lasmin <- glmnet(x,y,alpha = 1, lambda=best_lambda)
+
+tug_coef <- coef(lasmin)
+#coef(lasmin)
+Tug_Las_columns <- rownames(tug_coef)[which(tug_coef != 0)]
+Tug_Las_columns <- Tug_Las_columns[Tug_Las_columns != "(Intercept)"]
+
+x_test <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time,, data = tug_test_df)
+y_test <- tug_test_df$TUG.Time
+
+y_pred <- predict(lasmin, s = best_lambda, newx = x_test)
+
+lasmin_dt <- lasmin
+best_lamdt <- best_lambda
+x_testdt <- x_test
+
+rmse_test <- sqrt(mean((y_test - y_pred)^2))
+#rmse_test
+
+y_train_pred <- predict(lasmin, s = best_lambda, newx = x)
+
+rmse_train <- sqrt(mean((y - y_train_pred)^2))
+sst_train <- sum((y - mean(y))^2)
+sse_train <- sum((y - y_train_pred)^2)
+rsq_train <- 1 - sse_train/sst_train
+
+#rmse_train
+#rsq_train
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(kableExtra)
+
+#Make sure kable generates LaTeX
+options(knitr.table.format = "latex")
+
+gait_df <- data.frame(
+  Model = c("Lasso", "Lasso Fitted", "Ridge", "Elastic Net, $\\alpha = 0.3$", "Forward Selection", "Mixed Stepwise", "Random Forest", "Bagging", "Boosting", "Support Vector Machine", "PCR", "PLSR"),
+  `Number of Features Selected` = c(5, 5, 136, 11, 8, 8, 136, 136, 136, 136, 136, 136),
+  R2_Train = c(0.4461687, 0.4917, 0.3663101, 0.4207508, 0.6177, 0.6177, 0.2062, 0.1989, 0.6362536, 0.9900761, 0.2223, NA),
+  RMSE_Train = c(0.8018274, 0.7348852, 0.8576905, 0.8200209, 0.6193401, 0.6193401, 0.9599653, 0.9643338, 0.6498177, 0.1073331, 0.848038, 0.4289712),
+  RMSE_Test = c(0.8816903, 0.9801827, 0.7918393, 0.8553071, 1.268526, 1.268526, 0.9671073, 0.9689423, 0.818346, 0.8406758, 0.8421899, 1.230142)
+) #Table 1
+
+gait_df_display <- gait_df %>%
+  dplyr::mutate(
+    R2_Train = round(R2_Train, 3),
+    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
+  )
+#Used ChatGPT for create mutate^
+
+#Use $...$ math and \\mathrm so no extra package is required
+kbl(
+  gait_df_display,
+  caption = "Dominant Foot Gait Time Model Summaries",
+  col.names = c(
+    "Model",
+    "Number of Features Selected",
+    "$R^2_{\\mathrm{Train,Adj}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Train}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Test}}$"
+  ),
+  digits = 3,
+  format = "latex",
+  booktabs = TRUE,
+  escape = FALSE,
+  na = ""
+) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+```{r, fig.width=10, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Top 10 Influential Variables in Dominant Gait Time Prediction Using Random Forest"}
+library(randomForest)
+set.seed(101)
+
+gaitRF <- randomForest(
+  Gait.Time ~ .,
+  data = subset(gait_train_df, select = -TUG.Time), #remove the other response variable
+  mtry = (ncol(gait_train_df) - 2)/3, #total predictors minus response and excluded var
+  importance = TRUE
+)
+#gaitRF
+
+gaitRF_pred <- predict(gaitRF, newdata = subset(gait_test_df, select = -c(Gait.Time, TUG.Time)))
+
+gaitRF_true <- gait_test_df$Gait.Time
+
+rmse_test <- sqrt(mean((gaitRF_pred - gaitRF_true)^2))
+
+#rmse_test
+
+varImpPlot(gaitRF, n.var = 10, main="") #Figure 1
+```
+
+```{r, echo=FALSE}
+tug_df <- data.frame(
+  Model = c("Lasso", "Lasso Fitted" ,"Ridge", "Elastic Net, $\\alpha = 0.1$", "Forward Selection", "Mixed Stepwise", "Random Forest", "Bagging", "Boosting", "Support Vector Machine", "PCR", "PLSR"),
+  `Number of Features Selected` = c(19, 19, 136, 39, 12, 11, 136, 136, 136, 136, 136, 136),
+  R2_Train = c(0.6219507, 0.5965, 0.5044056, 0.6103789, 0.6577, 0.6556, 0.163, 0.1529, 0.7857594, 0.3480116, 0.3859, NA),
+  RMSE_Train = c(2.536194, 2.157436, 2.903832, 2.574717, 2.153974, 2.183263, 3.773757, 3.796417, 1.909234, 3.330644, 2.884951, 1.66369),
+  RMSE_Test = c(3.150682, 4.214708, 3.242126, 3.141596, 4.458523, 4.39497, 2.728863, 2.79336, 3.064242, 3.381796, 4.043726, 4.294462)
+) #Table 2
+
+tug_df_display <- tug_df %>%
+  dplyr::mutate(
+    R2_Train = round(R2_Train, 3),
+    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
+  )
+
+kbl(
+  tug_df_display,
+  caption = "Dominant Foot TUG Time Model Summaries",
+  col.names = c(
+    "Model",
+    "Number of Features Selected",
+    "$R^2_{\\mathrm{Train,Adj}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Train}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Test}}$"
+  ),
+  digits = 3,
+  format = "latex",
+  booktabs = TRUE,
+  escape = FALSE
+) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+```{r, fig.width=10, fig.height=8,echo=FALSE, fig.cap="Top 10 Influential Variables in Dominant TUG Time Prediction Using Random Forest"}
+set.seed(101)
+
+tugRF <- randomForest(
+  TUG.Time ~ .,
+  data = subset(tug_train_df, select = -Gait.Time), #remove the other response variable
+  mtry = (ncol(tug_train_df) - 2)/3, #total predictors minus response and excluded var
+  importance = TRUE
+)
+#tugRF
+
+tugRF_pred <- predict(tugRF, newdata = subset(tug_test_df, select = -c(Gait.Time, TUG.Time)))
+
+tugRF_true <- tug_test_df$TUG.Time
+
+rmse_test <- sqrt(mean((tugRF_pred - tugRF_true)^2))
+
+#rmse_test
+
+varImpPlot(tugRF, n.var = 10, main="") #Figure 2
+
+#head(df)
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+set.seed(101)
+
+gait_train_index <- createDataPartition(ndom_df$`Gait Time`, p = 0.7, list = FALSE)
+gait_train_df <- ndom_df[gait_train_index, ]
+gait_test_df  <- ndom_df[-gait_train_index, ]
+
+names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
+names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+y <- gait_train_df$Gait.Time
+
+x <- model.matrix(Gait.Time ~ . - Gait.Time - TUG.Time, data=gait_train_df)
+
+whole_lasso_fit <- glmnet(x,y,alpha=1)
+
+#plot(whole_lasso_fit, xvar="lambda")
+set.seed(101)
+whole_cv_lasso <- cv.glmnet(x, y, alpha = 1)
+
+#plot(whole_cv_lasso)
+
+#best lambdas
+best_lambda <- whole_cv_lasso$lambda.min  #lambda that minimizes CV error/test MSE
+best_lambda_1se <- whole_cv_lasso$lambda.1se  #1-SE rule (simpler model)
+#best_lambda
+#best_lambda_1se
+
+#coef(whole_cv_lasso, s = "lambda.min") #coefficients at best lambda
+
+lasmin <- glmnet(x,y,alpha = 1, lambda=best_lambda)
+
+gait_coef <- coef(lasmin)
+
+#coef(lasmin)
+Gait_Las_columns <- rownames(coef(lasmin))[which(coef(lasmin) != 0)]
+Gait_Las_columns <- Gait_Las_columns[Gait_Las_columns != "(Intercept)"]
+
+x_test <- model.matrix( ~ . - Gait.Time - TUG.Time, data = gait_test_df)
+y_test <- gait_test_df$Gait.Time
+
+y_pred <- predict(lasmin, s = best_lambda, newx = x_test)
+
+lasmin_ndg <- lasmin
+best_lamndg <- best_lambda
+x_testndg <- x_test
+
+rmse_test <- sqrt(mean((y_test - y_pred)^2))
+#rmse_test
+
+y_train_pred <- predict(lasmin, s = best_lambda, newx = x)
+
+rmse_train <- sqrt(mean((y - y_train_pred)^2))
+sst_train <- sum((y - mean(y))^2)
+sse_train <- sum((y - y_train_pred)^2)
+rsq_train <- 1 - sse_train/sst_train
+
+#rsq_train
+#rmse_train
+
+sst_test <- sum((y_test - mean(y_test))^2)
+sse_test <- sum((y_test - y_pred)^2)
+rsq_test <- 1 - sse_test/sst_test
+#rsq_test
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+set.seed(101)
+tug_train_index <- createDataPartition(ndom_df$`TUG Time`, p = 0.7, list = FALSE)
+tug_train_df <- ndom_df[tug_train_index, ]
+tug_test_df  <- ndom_df[-tug_train_index, ]
+
+names(tug_train_df) <- make.names(names(tug_train_df), unique = TRUE)
+names(tug_test_df) <- make.names(names(tug_test_df), unique = TRUE)
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+y <- tug_train_df$TUG.Time
+
+x <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time, data=tug_train_df)
+
+whole_lasso_fit <- glmnet(x,y,alpha=1)
+
+#plot(whole_lasso_fit, xvar="lambda")
+
+set.seed(101)
+whole_cv_lasso <- cv.glmnet(x, y, alpha = 1)
+
+#plot(whole_cv_lasso)
+
+#best lambdas
+best_lambda <- whole_cv_lasso$lambda.min       #λ that minimizes CV error
+best_lambda_1se <- whole_cv_lasso$lambda.1se   #1-SE rule (simpler model)
+#best_lambda
+#best_lambda_1se
+
+#coef(whole_cv_lasso, s = "lambda.min")   #coefficients at best λ
+lasmin <- glmnet(x,y,alpha = 1, lambda=best_lambda)
+
+tug_coef <- coef(lasmin)
+#coef(lasmin)
+Tug_Las_columns <- rownames(tug_coef)[which(tug_coef != 0)]
+Tug_Las_columns <- Tug_Las_columns[Tug_Las_columns != "(Intercept)"]
+
+x_test <- model.matrix(TUG.Time ~ . - Gait.Time - TUG.Time,, data = tug_test_df)
+y_test <- tug_test_df$TUG.Time
+
+y_pred <- predict(lasmin, s = best_lambda, newx = x_test)
+
+lasmin_ndt <- lasmin
+best_lamndt <- best_lambda
+x_testndt <- x_test
+
+rmse_test <- sqrt(mean((y_test - y_pred)^2))
+#rmse_test
+
+y_train_pred <- predict(lasmin, s = best_lambda, newx = x)
+
+rmse_train <- sqrt(mean((y - y_train_pred)^2))
+sst_train <- sum((y - mean(y))^2)
+sse_train <- sum((y - y_train_pred)^2)
+rsq_train <- 1 - sse_train/sst_train
+
+#rmse_train
+#rsq_train
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#Make sure kable generates LaTeX
+options(knitr.table.format = "latex")
+
+gait_df <- data.frame(
+  Model = c("Lasso", "Lasso Fitted", "Ridge", "Elastic Net, $\\alpha = 0.1$", "Forward Selection", "Mixed Stepwise", "Random Forest", "Bagging", "Boosting", "Support Vector Machine", "PCR", "PLSR"),
+  `Number of Features Selected` = c(5, 5, 136, 27, 17, 20, 136, 136, 136, 136, 136, 136),
+  R2_Train = c(0.3170152, 0.3311, 0.3154133, 0.2890319, 0.5638, 0.6915, 0.0758, 0.0376, 0.3647926,  0.3592468, 0.2708, NA),
+  RMSE_Train = c(0.8346466, 0.7882639, 0.8356249, 0.8515735, 0.5566652, 0.4497452, 0.9708987, 0.9907621, 0.804924, 0.8084301, 0.764459, 0.433953),
+  RMSE_Test = c(0.7732145, 0.7947691, 0.7471418, 0.7739773, 1.078187, 1.384372, 0.7546157, 0.7672148, 0.764224, 0.7552265, 0.8533727, 1.128968)
+) #Table 3
+
+gait_df_display <- gait_df %>%
+  dplyr::mutate(
+    R2_Train = round(R2_Train, 3),
+    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
+  )
+
+#Use $...$ math and \\mathrm so no extra package is required
+kbl(
+  gait_df_display,
+  caption = "Nondominant Foot Gait Time Model Summaries",
+  col.names = c(
+    "Model",
+    "Number of Features Selected",
+    "$R^2_{\\mathrm{Train,Adj}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Train}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Test}}$"
+  ),
+  digits = 3,
+  format = "latex",
+  booktabs = TRUE,
+  escape = FALSE
+) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+```{r, echo=FALSE}
+gait_lasreg <- lm(Gait.Time ~ acctime_ITIsd + Age.numerical + acctime_Powerlog_3  + accTimeFrequency_SDSumenergy_2 + accTimeFrequency_MeanSumenergy_3, data = gait_train_df)
+```
+
+```{r, fig.width=10, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Top 10 Influential Variables in Nondominant Gait Time Prediction Using Random Forest"}
+set.seed(101)
+
+gaitRF <- randomForest(
+  Gait.Time ~ .,
+  data = subset(gait_train_df, select = -TUG.Time), #remove the other response variable
+  mtry = (ncol(gait_train_df) - 2)/3, #total predictors minus response and excluded var
+  importance = TRUE
+)
+#gaitRF
+
+gaitRF_pred <- predict(gaitRF, newdata = subset(gait_test_df, select = -c(Gait.Time, TUG.Time)))
+
+gaitRF_true <- gait_test_df$Gait.Time
+
+rmse_test <- sqrt(mean((gaitRF_pred - gaitRF_true)^2))
+
+#rmse_test
+
+varImpPlot(gaitRF, n.var = 10, main="") #Figure 3
+```
+
+```{r, echo=FALSE}
+tug_df <- data.frame(
+  Model = c("Lasso", "Lasso Fitted", "Ridge", "Elastic Net, $\\alpha = 0.1$", "Forward Selection", "Mixed Stepwise", "Random Forest", "Bagging", "Boosting", "Support Vector Machine", "PCR", "PLSR"),
+  `Number of Features Selected` = c(24, 24, 136, 51, 13, 13, 136, 136, 136, 136, 136, 136),
+  R2_Train = c(0.6909447, 0.6442, 0.5507235, 0.646077, 0.6718, 0.6718, 0.2591, 0.2614, 0.7153307, 0.9902096, 0.4666, NA),
+  RMSE_Train = c(2.135414, 1.732116, 2.574666, 2.28517, 1.928428, 1.928428, 3.306407, 3.301226, 2.049436, 0.3800714, 2.486625, 1.658824),
+  RMSE_Test = c(3.261276, 3.502438, 2.653579, 2.952905, 3.811006, 3.811006, 2.500038, 2.570422,  2.52918, 2.699941, 2.94344, 2.86619)
+) #Table 4
+
+tug_df_display <- tug_df %>%
+  dplyr::mutate(
+    R2_Train = round(R2_Train, 3),
+    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
+  )
+
+kbl(
+  tug_df_display,
+  caption = "Nondominant Foot TUG Time Model Summaries",
+  col.names = c(
+    "Model",
+    "Number of Features Selected",
+    "$R^2_{\\mathrm{Train,Adj}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Train}}$",
+    "$\\mathrm{RMSE}_{\\mathrm{Test}}$"
+  ),
+  digits = 3,
+  format = "latex",
+  booktabs = TRUE,
+  escape = FALSE
+) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+```{r, fig.width=10, fig.height=8,echo=FALSE, fig.cap="Top 10 Influential Variables in Nondominant TUG Time Prediction Using Random Forest"}
+set.seed(101)
+
+tugRF <- randomForest(
+  TUG.Time ~ .,
+  data = subset(tug_train_df, select = -Gait.Time), #remove the other response variable
+  mtry = (ncol(tug_train_df) - 2)/3, #total predictors minus response and excluded var
+  importance = TRUE
+)
+#tugRF
+
+tugRF_pred <- predict(tugRF, newdata = subset(tug_test_df, select = -c(Gait.Time, TUG.Time)))
+
+tugRF_true <- tug_test_df$TUG.Time
+
+rmse_test <- sqrt(mean((tugRF_pred - tugRF_true)^2))
+
+#rmse_test
+
+varImpPlot(tugRF, n.var = 10, main="") #Figure 4
+```
+
+```{r, fig.cap="Bland–Altman Plot for Nondominant Foot Gait Time (LASSO-Selected Linear Model)", echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+#Lasso Fitted
+observed <- gait_test_df$Gait.Time
+predicted <- predict(gait_lasreg, newdata = gait_test_df)
+
+BAdf <- data.frame(
+  avg = (observed + predicted) / 2,
+  diff = observed - predicted
+)
+
+colnames(BAdf) <- c("avg", "diff")
+
+#Mean bias & limits of agreement
+mean_diff <- mean(BAdf$diff)
+sd_diff <- sd(BAdf$diff)
+lower <- mean_diff - 1.96 * sd_diff
+upper <- mean_diff + 1.96 * sd_diff
+
+ggplot(BAdf, aes(x = avg, y = diff)) +
+  geom_point(size = 2, alpha = 0.7) +
+  geom_hline(yintercept = mean_diff, color = "blue", linewidth = 1) +
+  geom_hline(yintercept = lower, color = "red", linetype = "dashed") +
+  geom_hline(yintercept = upper, color = "red", linetype = "dashed") +
+  labs(
+    #title = "Bland–Altman Plot: Observed vs Predicted Gait Time",
+    x = "Average of Observed and Predicted",
+    y = "Observed - Predicted"
+  ) +
+  theme_minimal(base_size = 14)
+#Figure 5
+```
+
+
+```{r, fig.cap="Bland–Altman Plot for Nondominant Foot TUG Time (Random Forest Model)", echo=FALSE}
+#Random Forest
+observed <- tug_test_df$TUG.Time #Also y_test
+predicted <- predict(tugRF, newdata = tug_test_df)
+
+BAdf <- data.frame(
+  avg = (observed + predicted) / 2,
+  diff = observed - predicted
+)
+
+colnames(BAdf) <- c("avg", "diff")
+
+mean_diff <- mean(BAdf$diff)
+sd_diff <- sd(BAdf$diff)
+lower <- mean_diff - 1.96 * sd_diff
+upper <- mean_diff + 1.96 * sd_diff
+
+ggplot(BAdf, aes(x = avg, y = diff)) +
+  geom_point(size = 2, alpha = 0.7) +
+  geom_hline(yintercept = mean_diff, color = "blue", linewidth = 1) +
+  geom_hline(yintercept = lower, color = "red", linetype = "dashed") +
+  geom_hline(yintercept = upper, color = "red", linetype = "dashed") +
+  labs(
+    #title = "Bland–Altman Plot: Observed vs Predicted TUG Time",
+    x = "Average of Observed and Predicted",
+    y = "Observed - Predicted"
+  ) +
+  theme_minimal(base_size = 14) #figure 6
+```
+
+```{r, echo=FALSE, results='asis'}
+cat("\\clearpage")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#summary(gait_lasreg) #Table 5
+
+library(broom)
+library(knitr)
+library(kableExtra)
+
+tidy_gait <- tidy(gait_lasreg)
+
+mod_sum <- summary(gait_lasreg)
+model_stats <- tibble(
+  Metric = c("R-squared", "Adjusted R-squared", "F-statistic", "Model p-value"),
+  Value = c(
+    round(mod_sum$r.squared, 4),
+    round(mod_sum$adj.r.squared, 4),
+    round(mod_sum$fstatistic[1], 3),
+    round(pf(mod_sum$fstatistic[1], mod_sum$fstatistic[2],
+             mod_sum$fstatistic[3], lower.tail = FALSE), 4)
+  )
+)
+
+model_stats <- tibble(
+  Metric = c("R-squared", "Adjusted R-squared", "F-statistic", "Model p-value"),
+  Value = c(
+    mod_sum$r.squared,
+    mod_sum$adj.r.squared,
+    mod_sum$fstatistic[1],
+    (pf(mod_sum$fstatistic[1], mod_sum$fstatistic[2],
+             mod_sum$fstatistic[3], lower.tail = FALSE))
+  )
+)
+
+kable(tidy_gait,
+      caption = "Summary of the Nondominant LASSO-Selected Linear Model for Gait Time",
+      digits = 5,
+      col.names = c("Term", "Estimate", "Std. Error", "t value", "p value"),
+      format = "latex",
+      booktabs = TRUE) %>%
+  kable_styling(full_width = FALSE, position = "center",
+                latex_options = c("striped", "hold_position"))
+```
+
+```{r, echo=FALSE, fig.cap="Scale–Location Plot for the LASSO-Selected Linear Model of Nondominant Foot Gait Time"}
+#fig.width=10, fig.height=8
+plot(gait_lasreg, which=3, sub="") #Figure 7
+```
+
+\pagebreak
+
+## References
