@@ -102,7 +102,7 @@ The average RMSE for all alpha values were very similar. However it was identifi
 
 *Random Forest*
 
-Random forest produced moderate training fit but competitive test RMSE, slightly behind Ridge for the nondominant foot. Some noticeably influential variables (in terms of percent increase in Mean Squared Error) for dominant foot in the importance plot were coefficient of variation and standard deviation of the intertap interval features (acctime_ITIcv, acctime_ITIsd), Age , Standard deviation of summed foot-tapping energy over time in the z-axis (accTimeFrequency_SDSumenergy_3), and Kurtosis signal in the x-axis (acctime_Kurtosissignal_1). Three stand out important features for the nondominant foot (shown in figure 3) is the minimum and variance signal in the z-axis (acctime_Minsignal_3, acctime_Varsignal_3) as well as standard deviation of summed foot-tapping energy over time in the y-axis (accTimeFrequency_SDSumenergy_2). All top ten features (in terms of %IncMSE) in figure 1 and 3 were extracted from the accelerometer. 
+Random forest produced moderate training fit but competitive test RMSE, slightly behind Ridge for the nondominant foot. Some noticeably influential variables seen in [@fig-1] (in terms of percent increase in Mean Squared Error) for dominant foot in the importance plot were coefficient of variation and standard deviation of the intertap interval features (acctime_ITIcv, acctime_ITIsd), Age , Standard deviation of summed foot-tapping energy over time in the z-axis (accTimeFrequency_SDSumenergy_3), and Kurtosis signal in the x-axis (acctime_Kurtosissignal_1). Three stand out important features for the nondominant foot (shown in [@fig-3]) is the minimum and variance signal in the z-axis (acctime_Minsignal_3, acctime_Varsignal_3) as well as standard deviation of summed foot-tapping energy over time in the y-axis (accTimeFrequency_SDSumenergy_2). All top ten features (in terms of %IncMSE) in [@fig-1] and [@fig-3] were extracted from the accelerometer. 
 
 *Bagging*
 
@@ -126,7 +126,7 @@ Seven components were required to capture roughly 80% variance. PLSR models show
 
 *Bland-Altman*
 
-For gait time, the Bland–Altman plot for one of the best-performing models (the nondominant LASSO-fitted model) is shown in Figure 5. The mean bias is slightly below zero, and all observations fall within the 95% limits of agreement. The spread of the differences increases as the average gait time increases, with points appearing more dispersed at higher values.
+For gait time, the Bland–Altman plot for one of the best-performing models (the nondominant LASSO-fitted model) is shown in [@fig-5]. The mean bias is slightly below zero, and all observations fall within the 95% limits of agreement. The spread of the differences increases as the average gait time increases, with points appearing more dispersed at higher values.
 
 ## TUG Results
 
@@ -150,7 +150,7 @@ The dominant foot achieved its best performance at $\alpha$ = 0.1, while the non
 
 *Random Forest*
 
-Random forest achieved the lowest test RMSE across all models, making it one of the strongest predictive approaches for TUG Time. Presented in Figures 2 and 4, the most influential features for the dominant foot (based on percent increase in Mean Squared Error) were age, the mean intertap interval (acctime_ITImean), and the minimum and variance of the accelerometer’s z-axis signal (acctime_Minsignal_3, acctime_Varsignal_3). For the nondominant foot, Age and the minimum and variance of the z-axis signal were again among the top predictors, along with the log-transformed power in the z-axis and magnitude (acctime_Powerlog_3, acctime_Powerlog_4). Gyroscope-derived features were also more prominent in the TUG models compared to the gait random forest models.
+Random forest achieved the lowest test RMSE across all models, making it one of the strongest predictive approaches for TUG Time. Presented in [@fig-2] and [@fig-4], the most influential features for the dominant foot (based on percent increase in Mean Squared Error) were age, the mean intertap interval (acctime_ITImean), and the minimum and variance of the accelerometer’s z-axis signal (acctime_Minsignal_3, acctime_Varsignal_3). For the nondominant foot, Age and the minimum and variance of the z-axis signal were again among the top predictors, along with the log-transformed power in the z-axis and magnitude (acctime_Powerlog_3, acctime_Powerlog_4). Gyroscope-derived features were also more prominent in the TUG models compared to the gait random forest models.
 
 *Bagging*
 
@@ -174,7 +174,7 @@ For PLSR, the optimal number of components was identified as six for the dominan
 
 *Bland-Altman*
 
-For TUG time, the Bland–Altman plot for the best-performing model (the nondominant random forest model) is shown in Figure 6. The mean bias is slightly below zero, and the differences remain relatively stable across the range of average TUG values. Two observations fall outside the 95% limits of agreement, while all remaining points lie within the expected range.
+For TUG time, the Bland–Altman plot for the best-performing model (the nondominant random forest model) is shown in [@fig-6]. The mean bias is slightly below zero, and the differences remain relatively stable across the range of average TUG values. Two observations fall outside the 95% limits of agreement, while all remaining points lie within the expected range.
 
 ## Discussion
 
@@ -196,7 +196,7 @@ For dimensionality reduction approaches, PCR and PLSR achieved some of the lowes
 
 The Bland–Altman plot for gait time showed that the best linear model (the non-zero-coefficients fitted model) slightly overpredicted on average, though the overall bias was minimal. The spread of differences increased at higher gait times, suggesting some degree of heteroskedasticity and indicating that the model performed less consistently for participants with longer gait times. A similar pattern was suggested in the residual diagnostic plots, which showed mild increases in variance at larger fitted values.
 
-However, this behaviour was not substantial. The Scale–Location plot (Figure 7) did not provide strong evidence of heteroskedasticity. Although the LOESS curve displayed slight curvature, the variance of the residuals increased slightly across fitted values, but the change was small (approximately 0.5 to 1) and not large enough to suggest problematic heteroskedasticity. Overall, the assumption of constant variance was considered acceptable.
+However, this behaviour was not substantial. The Scale–Location plot ([@fig-7]) did not provide strong evidence of heteroskedasticity. Although the LOESS curve displayed slight curvature, the variance of the residuals increased slightly across fitted values, but the change was small (approximately 0.5 to 1) and not large enough to suggest problematic heteroskedasticity. Overall, the assumption of constant variance was considered acceptable.
 
 In contrast, the Bland–Altman plot for TUG time using the nondominant random forest model showed minimal overprediction, with relatively stable differences across the range of averages. Although two observations fell outside the limits of agreement, the overall error structure appeared more uniform than in the gait time model.
 
@@ -385,6 +385,8 @@ rsq_train <- 1 - sse_train/sst_train
 ```
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
+##| label: tbl-1
+##| tbl-cap: "Dominant Foot Gait Time Model Summaries"
 library(kableExtra)
 
 #Make sure kable generates LaTeX
@@ -427,6 +429,8 @@ kbl(
 ```
 
 ```{r, fig.width=10, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Top 10 Influential Variables in Dominant Gait Time Prediction Using Random Forest"}
+#| label: fig-1
+#| fig-cap: "Top 10 Influential Variables in Dominant Gait Time Prediction Using Random Forest"
 library(randomForest)
 set.seed(101)
 
@@ -484,6 +488,8 @@ kbl(
 ```
 
 ```{r, fig.width=10, fig.height=8,echo=FALSE, fig.cap="Top 10 Influential Variables in Dominant TUG Time Prediction Using Random Forest"}
+#| label: fig-2
+#| fig-cap: "Top 10 Influential Variables in Dominant TUG Time Prediction Using Random Forest"
 set.seed(101)
 
 tugRF <- randomForest(
@@ -679,6 +685,8 @@ gait_lasreg <- lm(Gait.Time ~ acctime_ITIsd + Age.numerical + acctime_Powerlog_3
 ```
 
 ```{r, fig.width=10, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Top 10 Influential Variables in Nondominant Gait Time Prediction Using Random Forest"}
+#| label: fig-3
+#| fig-cap: "Top 10 Influential Variables in Nondominant Gait Time Prediction Using Random Forest"
 set.seed(101)
 
 gaitRF <- randomForest(
@@ -735,6 +743,8 @@ kbl(
 ```
 
 ```{r, fig.width=10, fig.height=8,echo=FALSE, fig.cap="Top 10 Influential Variables in Nondominant TUG Time Prediction Using Random Forest"}
+#| label: fig-4
+#| fig-cap: "Top 10 Influential Variables in Nondominant TUG Time Prediction Using Random Forest"
 set.seed(101)
 
 tugRF <- randomForest(
@@ -757,6 +767,8 @@ varImpPlot(tugRF, n.var = 10, main="") #Figure 4
 ```
 
 ```{r, fig.cap="Bland–Altman Plot for Nondominant Foot Gait Time (LASSO-Selected Linear Model)", echo=FALSE, warning=FALSE, message=FALSE}
+#| label: fig-5
+#| fig-cap: "Bland–Altman Plot for Nondominant Foot Gait Time (LASSO-Selected Linear Model)"
 library(ggplot2)
 #Lasso Fitted
 observed <- gait_test_df$Gait.Time
@@ -791,6 +803,8 @@ ggplot(BAdf, aes(x = avg, y = diff)) +
 
 
 ```{r, fig.cap="Bland–Altman Plot for Nondominant Foot TUG Time (Random Forest Model)", echo=FALSE}
+#| label: fig-6
+#| fig-cap: "Bland–Altman Plot for Nondominant Foot TUG Time (Random Forest Model)"
 #Random Forest
 observed <- tug_test_df$TUG.Time #Also y_test
 predicted <- predict(tugRF, newdata = tug_test_df)
@@ -867,6 +881,8 @@ kable(tidy_gait,
 ```
 
 ```{r, echo=FALSE, fig.cap="Scale–Location Plot for the LASSO-Selected Linear Model of Nondominant Foot Gait Time"}
+#| label: fig-7
+#| fig-cap: "Scale–Location Plot for the LASSO-Selected Linear Model of Nondominant Foot Gait Time"
 #fig.width=10, fig.height=8
 plot(gait_lasreg, which=3, sub="") #Figure 7
 ```
