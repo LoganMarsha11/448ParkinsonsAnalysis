@@ -13,6 +13,7 @@ library(readxl)
 dom_df <- read_excel("~/DataAllFeatures.xlsx", sheet = "Dominant foot")
 #ndom_df <- read_excel("~/DataAllFeatures.xlsx", sheet = "Nondominant")
 ```
+Import the dataset from Excel and load the dominant-foot data into "dom_df" for analysis.
 
 ## Data Cleaning
 
@@ -33,6 +34,7 @@ dom_df <- dom_df %>% select (-(acctime_Power_1:acctime_Power_4))
 dom_df <- dom_df %>% select (-(gyrotime_Power_1:gyrotime_Power_3))
 dom_df <- dom_df %>% select (-gyrotimefrequency_totalTimecsainteruption)
 ```
+Remove all irrelevant or unused variables from the dominant-foot dataset to keep only the features needed for analysis.
 
 ## Lasso
 
@@ -50,6 +52,8 @@ gait_test_df  <- dom_df[-gait_train_index, ]
 names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
 names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
 ```
+Create a stratified 70/30 train-test split based on the Gait Time response. Then standardize column names (replacing spaces with periods) to ensure compatibility with modeling functions.
+
 
 ```{r}
 y <- gait_train_df$Gait.Time
@@ -99,6 +103,7 @@ rsq_train <- 1 - sse_train/sst_train
 rsq_train
 rmse_train
 ```
+Fit a LASSO regression model using cross-validation to select the optimal lambda. Extract the non-zero predictors and evaluate model performance by computing training and test RMSE and training R-squared.
 
 ```{r}
 gait_lasreg <- lm(Gait.Time ~ acctime_ITIsd + Age.numerical + acctime_Powerlog_3 + gyrotimefrequency_maxdominantfrequency + accTimeFrequency_SDSumenergy_3, data = gait_train_df)
@@ -113,6 +118,7 @@ rmse_test <- sqrt(mean((gait_test_df$Gait.Time - pred_test)^2))
 rmse_train
 rmse_test
 ```
+Refit the LASSO-selected predictors using a standard linear model to obtain interpretable coefficients and inference statistics. Compute training and test RMSE for comparison in the summary table.
 
 ### Tug Lasso
 
@@ -126,6 +132,7 @@ tug_test_df  <- dom_df[-tug_train_index, ]
 names(tug_train_df) <- make.names(names(tug_train_df), unique = TRUE)
 names(tug_test_df) <- make.names(names(tug_test_df), unique = TRUE)
 ```
+Same procedure as previous lasso model, except created a stratified 70/30 train-test split based on the TUG Time response.
 
 ```{r}
 y <- tug_train_df$TUG.Time
@@ -173,6 +180,7 @@ rsq_train <- 1 - sse_train/sst_train
 rmse_train
 rsq_train
 ```
+Same procedure as gait lasso model.
 
 ```{r}
 tug_lasreg <- lm(TUG.Time ~ acctime_taps + acctime_ITIsd + acctime_Minsignal_2 +
@@ -196,6 +204,7 @@ rmse_test <- sqrt(mean((tug_test_df$TUG.Time - pred_test)^2))
 rmse_train
 rmse_test
 ```
+Same procedure as gait lasso-selected linear model.
 
 ##Stepwise
 
@@ -259,6 +268,7 @@ sst <- sum((y_true - mean(y_true))^2)
 test_r2 <- 1 - sse/sst
 test_r2
 ```
+Apply correlation-based feature reduction to remove predictors with correlations above 0.8, using `findCorrelation()` to retain the less redundant variables. Fit a forward stepwise regression model on the reduced predictor set (AIC-based), then evaluate performance using training and test RMSE and test R-squared for the summary table.
 
 ### Mixed
 
@@ -285,6 +295,7 @@ sst <- sum((y_true - mean(y_true))^2)
 test_r2 <- 1 - sse/sst
 test_r2
 ```
+Using the same correlation-filtered predictor set, fit a mixed stepwise regression model. Compute training and test RMSE along with test R-squared for inclusion in the summary table.
 
 ##Tug Step
 
@@ -335,6 +346,7 @@ y_train <- reduced_train$TUG.Time
 rmse_train <- sqrt(mean((y_train - train_preds)^2))
 rmse_train
 ```
+Same procedure as gait stepwise regression, other than the threshold had to be lowered to 0.75 for TUG forward selection and mixed to compute.
 
 ### Mixed
 
@@ -355,6 +367,7 @@ y_train <- reduced_train$TUG.Time
 rmse_train <- sqrt(mean((y_train - train_preds)^2))
 rmse_train
 ```
+Same procedure as gait mixed stepwise regression.
 
 ##Ridge
 
@@ -402,6 +415,7 @@ rsq_train <- 1 - sse_train/sst_train
 rmse_train
 rsq_train
 ```
+Fit a ridge regression model for Gait Time using cross-validation to select the optimal lambda. Evaluate performance by calculating training and test RMSE and training R-squared for the summary table.
 
 ### Tug Ridge
 
@@ -447,6 +461,7 @@ rsq_train <- 1 - sse_train/sst_train
 rmse_train
 rsq_train
 ```
+Same procedure as gait ridge model.
 
 ## Random Forest
 
@@ -485,6 +500,7 @@ varImpPlot(gaitRF, n.var = 10, main = "Top 10 Variable Importances")
 #top20 <- importance_df[order(-importance_df$X.IncMSE), ][1:20, ]
 #print(top20)
 ```
+Train a Random Forest model for Gait Time using the standard m=p/3 predictor rule (excluding the TUG response). Evaluate test RMSE and plot the top 10 most important predictors.
 
 ### Gait Bagging
 
@@ -508,6 +524,7 @@ rmse_test
 
 varImpPlot(gaitBag, n.var = 10, main = "Top 10 Variable Importances")
 ```
+Fit a bagging model for Gait Time using all predictors (m=p), compute test RMSE, and display the top 10 most important features via the importance plot.
 
 ### Gait Boosting
 
@@ -540,6 +557,7 @@ r2_train <- 1 - sum((gait_train_df$Gait.Time - train_pred)^2) / sum((gait_train_
 rmse_train; rmse_test
 r2_train
 ```
+Fit a boosting model for Gait Time with 5000 trees and 5-fold cross-validation to select the optimal number of trees. Evaluate training and test RMSE and training R-squared at the selected iteration.
 
 ### Tug Forest
 
@@ -564,6 +582,7 @@ rmse_test
 
 varImpPlot(tugRF, n.var = 10, main = "Top 10 Variable Importances")
 ```
+Same ensemble method procedure as the gait models.
 
 ### Tug Bagging
 
@@ -584,6 +603,8 @@ tugBag_true <- tug_test_df$TUG.Time
 rmse_test <- sqrt(mean((tugBag_pred - tugBag_true)^2))
 
 rmse_test
+
+varImpPlot(tugBag, n.var = 10, main = "Top 10 Variable Importances")
 ```
 
 ### Tug Boosting
@@ -668,6 +689,7 @@ rsq_train <- 1 - sum((y_train - y_train_pred)^2) / sum((y_train - mean(y_train))
 rmse_train; rmse_test
 rsq_train
 ```
+Train a support vector machine with a radial basis function kernel using 10-fold cross-validation. Perform a grid search over sigma (gamma) and cost (C) to select optimal parameters, then evaluate training and test RMSE and training R-squared.
 
 ### Tug SVM
 
@@ -712,6 +734,7 @@ rsq_train <- 1 - sum((y_train - y_train_pred)^2) / sum((y_train - mean(y_train))
 rmse_train; rmse_test
 rsq_train
 ```
+Same process as gait support vector machine.
 
 ## PCR
 
@@ -747,6 +770,8 @@ y_test <- test_df$Gait.Time
 test_rmse <- sqrt(mean((pcr_pred - y_test)^2))
 test_rmse
 ```
+Perform principal component analysis on the predictors and select 12 components to retain ~80% of the variance. Fit a principal component regression model using these components and compute training and test RMSE for evaluation.
+
 ### TUG PCR
 ```{r}
 results <- prcomp(tug_train_df[ , !(names(tug_train_df) %in% c("TUG.Time", "Gait.Time"))], scale. = TRUE) #12 components for both GAIT and TUG training sets
@@ -783,6 +808,7 @@ test_rmse
 
 #Slightly different approach than data 311 when fitting PCR. Ran into some format issues with scr previously.
 ```
+Same procedure as the gait prinicpal component regression. Selected 12 components to retain ~80% of the variance.
 
 ## Gait PLSR
 ```{r}
@@ -803,6 +829,7 @@ rmse_train <- sqrt(mean((pcr_tr_pred - y_pred)^2))
 
 rmse_train; rmse_test
 ```
+Fit a partial least squares regression model on the gait training set, retaining 7 components to capture ~80% of variance. Compute training and test RMSE for evaluation in the summary table.
 
 ##TUG PLSR
 ```{r}
@@ -821,6 +848,7 @@ rmse_train <- sqrt(mean((pcr_tr_pred - y_pred)^2))
 
 rmse_train; rmse_test
 ```
+Fit a partial least squares regression model on the TUG training set, retaining 6 components to capture ~80% of variance. Compute training and test RMSE for evaluation in the summary table.
 
 ## Elastic Net
 
@@ -921,6 +949,7 @@ print(top_features)
 
 #AI assisted with format and errors while creating this nested for loop.
 ```
+Perform elastic net regression across alpha values from 0 (ridge) to 1 (LASSO) in 0.1 increments. For each alpha, run 100 random 70/30 train–test splits with 10-fold cross-validation to select the optimal lambda. Compute test RMSE and track feature selection frequency across iterations. Select the alpha with the lowest average RMSE and identify the top 10 most frequently selected predictors.
 
 ```{r}
 #Best alpha: 0.3
@@ -973,6 +1002,7 @@ rsq_train <- 1 - sse_train/sst_train
 rsq_train
 rmse_train
 ```
+Using a fixed seed for reproducibility, refit the elastic net model using the optimal alpha and best lambda. Evaluate predictive performance on the training and test sets using RMSE and training R-squared. 
 
 ### Tug Elastic
 
@@ -1118,10 +1148,10 @@ rsq_train <- 1 - sse_train/sst_train
 rmse_train
 rsq_train
 ```
+Same elastic net procedure as gait model.
 
 ## Bland-Altman (Gait)
 ```{r}
-#https://www.statology.org/bland-altman-plot-r/ 
 library(ggplot2)
 #Lasso Fitted
 observed <- gait_test_df$Gait.Time #Also y_test
@@ -1152,6 +1182,7 @@ ggplot(BAdf, aes(x = avg, y = diff)) +
   ) +
   theme_minimal(base_size = 14)
 ```
+Bland-Altman visualization of the lasso-selected linear model. For the formal report, I have created a bland-altman plot for the nondominant best predictive model. Display the mean bias (blue line) and 95% limits of agreement (red dashed lines) for easy interpretation.
 
 ## Bland-Altman (TUG)
 ```{r}
@@ -1183,6 +1214,7 @@ ggplot(BAdf, aes(x = avg, y = diff)) +
   ) +
   theme_minimal(base_size = 14)
 ```
+Same procedure as gait bland-altman plot.
 
 ## SHAP
 ### Gait Random Forest
@@ -1199,7 +1231,6 @@ sv <- shapviz(gaitRF, X = X_train)
 
 #Global feature importance via mean(|SHAP|)
 sv_importance(sv)
-
 
 #Does not work since shapviz does not support randomForest package
 ```
@@ -1236,6 +1267,7 @@ sv_importance(sv)
 
 #SHAP is quite computationally expensive.
 ```
+Compute approximate SHAP values for the Random Forest model using fastshap to obtain mean absolute feature importance. Visualize global feature contributions with shapviz. This approach reproduces importance rankings similar to the standard Random Forest plot, without providing additional insights.
 
 ### TUG Random Forest
 ```{r, cache=TRUE}
@@ -1264,6 +1296,8 @@ sv <- shapviz(shap_values, X = X_train)
 #Mean absolute SHAP rankings
 sv_importance(sv)
 ```
+Same procedure and issues as gait SHAP plot. 
+
 ## Exploratory Analysis
 ### Pairwise
 ```{r, fig.width=10, fig.height=8}
@@ -1283,6 +1317,7 @@ subset_df <- dom_df[, c("Gait Time", top10_vars)]
 
 pairs(subset_df, main = "Pairwise Plots: Top 10 Correlated Predictors with Gait Time", cex.labels = 0.55)
 ```
+Generate pairwise scatter plots for the top 10 predictors most strongly correlated with Gait Time to visually inspect relationships and potential patterns.
 
 ```{r, fig.width=10, fig.height=8}
 predictors <- dom_df[, !(names(dom_df) %in% c("Gait Time", "TUG Time"))]
@@ -1298,6 +1333,7 @@ subset_df <- dom_df[, c("TUG Time", top10_vars)]
 
 pairs(subset_df, main = "Pairwise Plots: Top 10 Correlated Predictors with TUG Time", cex.labels = 0.55)
 ```
+Generate pairwise scatter plots for the top 10 predictors most strongly correlated with TUG Time to visually inspect relationships and potential patterns.
 
 ### HeatMap
 ```{r, fig.width=32, fig.height=32}
@@ -1316,6 +1352,8 @@ ggplot(cor_df, aes(x = Var1, y = Var2, fill = value)) +
   coord_fixed()
 #Extremely large, difficult to read. 
 ```
+Visualize the correlation matrix of all predictors as a heatmap. While the large number of variables makes individual relationships hard to interpret, the plot highlights overall correlation patterns in the dataset.
+
 
 ### Histograms & Violinplots
 ```{r, echo=FALSE, fig.cap="Histogram of Gait Time Distribution"}
@@ -1359,3 +1397,4 @@ ggplot(df, aes(x = "", y = `TUG Time`)) +
   ) +
   theme_minimal()
 ```
+Visualize the distribution of Gait and TUG Time using a histogram and a violin plot, highlighting the spread of values and potential outliers.
