@@ -493,7 +493,7 @@ rsq_train
 
 ### Gait Forest
 
-```{r, fig.width=10, fig.height=8}
+```{r, fig.width=10, fig.height=7}
 library(randomForest)
 set.seed(101)
 
@@ -548,16 +548,7 @@ rmse_test <- sqrt(mean((gaitBag_pred - gaitBag_true)^2))
 
 rmse_test
 
-#OOB RMSE
-#train_rmse <- sqrt(gaitBag$mse[length(gaitBag$mse)])
-#1.002981
-
-#Train RMSE
-#train_pred <- predict(gaitBag, newdata = subset(gait_train_df, select = -TUG.Time))
-#train_rmse <- sqrt(mean((train_pred - gait_train_df$Gait.Time)^2))
-#0.3991606
-
-varImpPlot(gaitRF, n.var = 10, main = "Top 10 Variable Importances")
+varImpPlot(gaitBag, n.var = 10, main = "Top 10 Variable Importances")
 ```
 
 ### Gait Boosting
@@ -1189,7 +1180,6 @@ sv <- shapviz(gaitRF, X = X_train)
 
 #Global feature importance via mean(|SHAP|)
 sv_importance(sv)
-
 
 #Does not work since shapviz does not support randomForest package
 ```
