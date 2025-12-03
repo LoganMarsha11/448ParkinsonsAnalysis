@@ -90,7 +90,7 @@ include_graphics("Schematic_Stepwise2.jpeg")
 #May have to adjust figure size
 ```
 
-The configuration where dominant and nondominant foot features were merged into a single model did not yield improved predictive performance, with RMSE values consistently worse than the individual-foot models. As a result, analyses in this report focus solely on the models trained separately for each foot.
+Merging dominant and nondominant foot features into a single model, as well as modeling the dominant foot separately, did not improve predictive performance. Both approaches produced consistently higher RMSE values than the nondominant-only models. As a result, the analyses in this report focus solely on models trained for the nondominant foot.
 
 *Stepwise*
 
@@ -141,8 +141,6 @@ For each plot, the mean difference (bias) between predicted and actual values wa
 ## Gait Results
 
 *Results for the gait time models are presented in [@tbl-1].*
-
-Details of the dominant foot models are provided in the appendix; they are excluded from the main report because the nondominant foot models achieved lower test RMSE and demonstrated stronger predictive performance.
 
 \FloatBarrier
 
@@ -242,7 +240,7 @@ The average RMSE for all $\alpha$ values were very similar. However it was ident
 
 *Random Forest*
 
-Random forest produced a weak training fit but competitive test RMSE, slightly behind Ridge. In the variable importance plot for the nondominant foot ([@fig-2]), the top three predictors in terms of percent increase in mean squared error (%IncMSE) were the minimum signal and variance of the z-axis accelerometer (`acctime_Minsignal_3`, `acctime_Varsignal_3`) and the standard deviation of summed foot-tapping energy in the y-axis (`accTimeFrequency_SDSumenergy_2`). Feature importance values decreased notably after these top three predictors. All of the top ten predictors (%IncMSE) were derived from accelerometer features.
+Random forest produced a weak training fit but competitive test RMSE, slightly behind Ridge. In the variable importance plot for the nondominant foot ([@fig-2]), the top three predictors in terms of percent increase in mean squared error were the minimum signal and variance of the z-axis accelerometer (`acctime_Minsignal_3`, `acctime_Varsignal_3`) and the standard deviation of summed foot-tapping energy in the y-axis (`accTimeFrequency_SDSumenergy_2`). Feature importance values decreased notably after these top three predictors. All of the top ten predictors (%IncMSE) were derived from accelerometer features.
 
 \FloatBarrier
 
@@ -347,8 +345,6 @@ plot(gait_lasreg, which=3, sub="") #Figure 4
 ## TUG Results
 
 *Results for the TUG time models are presented in [@tbl-3].*
-
-As with the gait results, details of the dominant foot models are provided in the appendix; they are excluded from the main report to maintain focus on the nondominant models, which demonstrated superior predictive performance.
 
 \FloatBarrier
 
