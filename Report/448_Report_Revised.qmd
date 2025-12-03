@@ -15,27 +15,11 @@ csl: vancouver.csl
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(readxl)
 
-dom_df <- read_excel("DataAllFeatures.xlsx", sheet = "Dominant foot")
 ndom_df <- read_excel("DataAllFeatures.xlsx", sheet = "Nondominant")
 ```
 
 ```{r, message=FALSE, echo=FALSE, warning=FALSE}
 library(dplyr)
-
-dom_df <- dom_df %>% select (-`Fall risk level`)
-dom_df <- dom_df %>% select(-(ParticipantName:acctime_tkeoMAE))
-dom_df <- dom_df %>% select (-acctime_tapsforce)
-dom_df <- dom_df %>% select (-(acctime_Rsquaretinsfreqfitted:acctime_MSEexpfitamptap))
-dom_df <- dom_df %>% select (-acctime_MSElinearfitamptap)
-dom_df <- dom_df %>% select (-(gyrotime_meandegreewithbumps:gyrotime_cvdegreewithbumps))
-dom_df <- dom_df %>% select (-gyrotime_numberbumps)
-dom_df <- dom_df %>% select (-gyrotimefrequency_numberinteruption)
-dom_df <- dom_df %>% select (-gyrotimefrequency_numberfreez)
-dom_df <- dom_df %>% select(-(gyrotimefrequency_maxdominantfrequencytime:gyrotimefrequency_interceptdominantfrequency))
-dom_df <- dom_df %>% select(-(gyrotimefrequency_longestinteruptcsa30:gyrotimefrequency_csavariability))
-dom_df <- dom_df %>% select (-(acctime_Power_1:acctime_Power_4))
-dom_df <- dom_df %>% select (-(gyrotime_Power_1:gyrotime_Power_3))
-dom_df <- dom_df %>% select (-gyrotimefrequency_totalTimecsainteruption)
 
 ndom_df <- ndom_df %>% select(-(ParticipantName:acctime_tkeoMAE))
 ndom_df <- ndom_df %>% select (-acctime_tapsforce)
@@ -54,27 +38,6 @@ ndom_df <- ndom_df %>% select (-gyrotimefrequency_totalTimecsainteruption)
 
 ```{r, message=FALSE, echo=FALSE, warning=FALSE}
 library(caret)
-set.seed(101)
-
-gait_train_index2 <- createDataPartition(dom_df$`Gait Time`, p = 0.7, list = FALSE)
-gait_train_df2 <- dom_df[gait_train_index2, ]
-gait_test_df2  <- dom_df[-gait_train_index2, ]
-
-names(gait_train_df2) <- make.names(names(gait_train_df2), unique = TRUE)
-names(gait_test_df2) <- make.names(names(gait_test_df2), unique = TRUE)
-```
-
-```{r, message=FALSE, echo=FALSE, warning=FALSE}
-set.seed(101)
-tug_train_index2 <- createDataPartition(dom_df$`TUG Time`, p = 0.7, list = FALSE)
-tug_train_df2 <- dom_df[tug_train_index2, ]
-tug_test_df2  <- dom_df[-tug_train_index2, ]
-
-names(tug_train_df2) <- make.names(names(tug_train_df2), unique = TRUE)
-names(tug_test_df2) <- make.names(names(tug_test_df2), unique = TRUE)
-```
-
-```{r, message=FALSE, echo=FALSE, warning=FALSE}
 set.seed(101)
 
 gait_train_index <- createDataPartition(ndom_df$`Gait Time`, p = 0.7, list = FALSE)
