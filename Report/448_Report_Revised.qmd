@@ -4,7 +4,6 @@ author: "Logan Marshall"
 format:
   pdf:
     citation-package: biblatex
-    #latex-float: false
 header-includes:
   - \usepackage{float}
   - \usepackage{placeins}
@@ -116,7 +115,17 @@ Although many of these engineered features are highly correlated, model accuracy
 
 The dataset was originally provided in two separate sheets, one containing measurements from participants performing the foot-tapping test with their dominant foot and the other with their nondominant foot. These time-series signals were processed to derive a large set of statistical features describing movement dynamics. Most participants completed both experiments, resulting in 84 observations for the dominant foot and 81 for the nondominant. The difference in sample sizes is due to the removal of faulty or excessively noisy observations to ensure data accuracy and integrity. Irrelevant columns that did not contribute to addressing the research questions were also removed using the **dplyr** package, reducing the total number of variables from 179 to 138 [@dplyr]. After excluding several categorical or classification features, the dataset consisted solely of numerical predictors suitable for regression analysis.
 
-For analyses involving both the dominant and non-dominant feet, only participants with data available for both feet were retained to ensure consistency across datasets. This filtering step reduced the participant pool from 85 to 80 individuals. In all other analyses focused on a single foot, all available participants were included. The data was then partitioned into training (70%) and testing (30%) subsets using the **caret** package [@caret]. Separate partitions were created for the two response variables, Gait Time and TUG Time, to enable independent model development and evaluation. To address multicollinearity among predictors, a correlation-based feature reduction was applied to the training dataset specifically for the stepwise regression models, which assume low intercorrelation among predictors. For each model, a correlation matrix was computed among all predictor variables in the training set. Starting with a high correlation threshold of 0.95, the cutoff was iteratively lowered in steps of 0.05 until stepwise regression was able to execute successfully. This process yielded a final cutoff of 0.8 for Gait and 0.75 for TUG. For analyses involving both the dominant and non-dominant feet, stepwise regression could not be applied, as the combination of predictors from both feet created an excessive number of columns relative to the number of observations. Accommodating would require lowering the correlation cutoff to a level that would remove too many important predictors, potentially discarding critical information. Predictor pairs exceeding these thresholds were reduced using the `findCorrelation()` function from the **caret** package, which removes the variable more highly correlated with the rest of the predictors [@caret]. This feature reduction decreased redundancy, resolved aliasing issues, and reduced dimensionality to a level where the number of predictors was only slightly greater than the number of observations, enabling stepwise regression to run properly. For our other models, this feature reduction step was not necessary.
+For analyses involving both the dominant and non-dominant feet, only participants with data available for both feet were retained to ensure consistency across datasets. This filtering step reduced the participant pool from 85 to 80 individuals. In all other analyses focused on a single foot, all available participants were included. The data was then partitioned into training (70%) and testing (30%) subsets using the **caret** package [@caret]. Separate partitions were created for the two response variables, Gait Time and TUG Time, to enable independent model development and evaluation. To address multicollinearity among predictors, a correlation-based feature reduction was applied to the training dataset specifically for the stepwise regression models, which assume low intercorrelation among predictors. For each model, a correlation matrix was computed among all predictor variables in the training set. Starting with a high correlation threshold of 0.95, the cutoff was iteratively lowered in steps of 0.05 until stepwise regression was able to execute successfully. This process yielded a final cutoff of 0.8 for Gait and 0.75 for TUG. For analyses involving both the dominant and non-dominant feet, stepwise regression could not be applied, as the combination of predictors from both feet created an excessive number of columns relative to the number of observations. Accommodating would require lowering the correlation cutoff to a level that would remove too many important predictors, potentially discarding critical information. Predictor pairs exceeding these thresholds were reduced using the `findCorrelation()` function from the **caret** package, which removes the variable more highly correlated with the rest of the predictors [@caret]. A schematic illustration of the variable filtering process is shown in [@fig-schematic]. This feature reduction decreased redundancy, resolved aliasing issues, and reduced dimensionality to a level where the number of predictors was only slightly greater than the number of observations, enabling stepwise regression to run properly. For our other models, this feature reduction step was not necessary.
+
+```{r, echo=FALSE, results='asis'}
+#| label: fig-schematic
+#| fig-cap: "Schematic Diagram of Modified Stepwise Regression"
+#| out-width: "100%"
+##| out-height: "100%"
+library(knitr)
+include_graphics("Schematic_Stepwise2.jpeg")
+#May have to adjust figure size
+```
 
 The configuration where dominant and nondominant foot features were merged into a single model did not yield improved predictive performance, with RMSE values consistently worse than the individual-foot models. As a result, analyses in this report focus solely on the models trained separately for each foot.
 
@@ -164,61 +173,20 @@ Used Partial Least Squares Regression (PLSR) to predict gait and TUG time using 
 
 A Bland-Altman analysis was used to assess the agreement between the predicted values from the model and the corresponding actual measurements. This method is widely applied in similar literature when comparing predicted versus observed TUG performance [@choi2021wearable]. In this study, Bland-Altman plots were generated for both TUG and gait to evaluate the reliability of the developed models.
 
-For each plot, the mean difference (bias) between predicted and actual values was calculated, along with the 95% limits of agreement defined as bias ± 1.96 × SD(differences). The bias is shown as a solid line, and the limits of agreement are shown as dashed lines. These limits represent the expected range within which most prediction errors should fall under normal model performance.
+For each plot, the mean difference (bias) between predicted and actual values was calculated, along with the 95% limits of agreement defined as $\text{bias} \pm 1.96 \times SD(\text{differences})$. The bias is shown as a solid line, and the limits of agreement are shown as dashed lines. These limits represent the expected range within which most prediction errors should fall under normal model performance.
 
 ## Gait Results
 
-*Results for the gait time models are presented in [@tbl-1] (dominant foot) and [@tbl-2] (nondominant foot).*
+*Results for the gait time models are presented in [@tbl-1].*
+
+Details of the dominant foot models are provided in the appendix; they are excluded from the main report because the nondominant foot models achieved lower test RMSE and demonstrated stronger predictive performance.
 
 \FloatBarrier
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
 #| label: tbl-1
-#| tbl-cap: "Dominant Foot Gait Time Model Summaries"
-library(kableExtra)
-
-#Make sure kable generates LaTeX
-options(knitr.table.format = "latex")
-
-gait_df <- data.frame(
-  Model = c("Lasso", "Lasso Fitted", "Ridge", "Elastic Net, $\\alpha = 0.3$", "Forward Selection", "Mixed Stepwise", "Random Forest", "Bagging", "Boosting", "Support Vector Machine", "PCR", "PLSR"),
-  `Number of Features Selected` = c(5, 5, 136, 11, 8, 8, 136, 136, 136, 136, 136, 136),
-  R2_Train = c(0.4461687, 0.4917, 0.3663101, 0.4207508, 0.6177, 0.6177, 0.2062, 0.1989, 0.6362536, 0.9900761, 0.2223, NA),
-  RMSE_Train = c(0.8018274, 0.7348852, 0.8576905, 0.8200209, 0.6193401, 0.6193401, 0.9599653, 0.9643338, 0.6498177, 0.1073331, 0.848038, 0.4289712),
-  RMSE_Test = c(0.8816903, 0.9801827, 0.7918393, 0.8553071, 1.268526, 1.268526, 0.9671073, 0.9689423, 0.818346, 0.8406758, 0.8421899, 1.230142)
-) #Table 1
-
-gait_df_display <- gait_df %>%
-  dplyr::mutate(
-    R2_Train = round(R2_Train, 3),
-    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
-  )
-#Used ChatGPT for create mutate^
-
-#Used $...$ math and \\mathrm so no extra package is required
-kbl(
-  gait_df_display,
-  #caption = "Dominant Foot Gait Time Model Summaries",
-  col.names = c(
-    "Model",
-    "Number of Features Selected",
-    "$R^2_{\\mathrm{Train,Adj}}$",
-    "$\\mathrm{RMSE}_{\\mathrm{Train}}$",
-    "$\\mathrm{RMSE}_{\\mathrm{Test}}$"
-  ),
-  digits = 3,
-  format = "latex",
-  booktabs = TRUE,
-  escape = FALSE,
-  na = ""
-) %>%
-  kable_styling(full_width = FALSE, position = "center",
-                latex_options = c("striped"))
-```
-\FloatBarrier
-```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
-#| label: tbl-2
 #| tbl-cap: "Nondominant Foot Gait Time Model Summaries"
-
+library(kableExtra)
 #Make sure kable generates LaTeX
 options(knitr.table.format = "latex")
 
@@ -231,10 +199,21 @@ gait_df <- data.frame(
 ) #Table 2
 
 gait_df_display <- gait_df %>%
-  dplyr::mutate(
+  mutate(
     R2_Train = round(R2_Train, 3),
+    RMSE_Train = formatC(RMSE_Train, format = "f", digits = 3),
+    RMSE_Test = formatC(RMSE_Test, format = "f", digits = 3),
     R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
   )
+
+gait_df_display$Model[3] <- paste0("\\textbf{", gait_df_display$Model[3], "}")
+gait_df_display$RMSE_Test[3] <- paste0("\\textbf{", gait_df_display$RMSE_Test[3], "}")
+
+#gait_df_display <- gait_df %>%
+#  mutate(
+#    R2_Train = round(R2_Train, 3),
+#    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
+#  )
 
 kbl(
   gait_df_display,
@@ -254,52 +233,29 @@ kbl(
   kable_styling(full_width = FALSE, position = "center",
                 latex_options = c("striped"))
 ```
-\FloatBarrier
 
 *Stepwise*
 
-After the correlation filter, 75 features remained for the dominant foot and 68 for the nondominant foot. Forward and mixed stepwise produced highly similar models. For the dominant foot, both methods selected the same 8 predictors; for the nondominant foot, mixed stepwise selected 20 and forward selected 17. Mixed stepwise slightly reduced training RMSE and improved adjusted R-squared ($R^2_{Train, Adj}$), while forward selection had the lower test RMSE.
+After the correlation filter, 68 features remained for the nondominant foot. Forward and mixed stepwise produced highly similar models. For the nondominant foot, mixed stepwise selected 20 and forward selected 17. Both models included a mixture of gyroscope and accelerometer domain features, along with age. Mixed stepwise produced lower training RMSE and higher adjusted R-squared ($R^2_{Train, Adj}$), whereas forward selection yielded the lower test RMSE. Both models showed noticeably higher test RMSE than training RMSE.
 
 *Lasso*
 
-Lasso performed very effectively in reducing the dimensionality of the dataset, selecting only 5 features for both feet out of the original 136 predictors at optimal $\lambda$ = 0.1944252 (dominant) and $\lambda$ = 0.2026074 (nondominant). Predictive performance was strong, with test RMSE among the best observed across all models. To further assess the impact of variable selection, the selected features from Lasso were fitted in a standard linear model. The training fit improved slightly, while the test RMSE increased minimally (less than a 0.1 change for the dominant and only 0.022 for the nondominant foot). A deeper examination of the summary table for the nondominant linear model (@tbl-3) shows that only one feature, the standard deviation of the intertap interval from the accelerometer (acctime_ITIsd), was statistically significant along with the intercept ($\alpha$ = 0.05). The overall model p-value was extremely small, indicating that the regression model as a whole was significant.
+Lasso performed very effectively in reducing the dimensionality of the dataset, selecting only 5 features for nondominant foot out of the original 136 predictors at optimal $\lambda$ = 0.2026074. Predictive performance was strong, with test RMSE among the best observed across all models. To further assess the impact of variable selection, the selected features from Lasso were fitted in a standard linear model. The training fit improved slightly, while the test RMSE increased minimally (only a 0.022 change for the nondominant foot). A deeper examination of the summary table for the nondominant linear model ([@tbl-2]) shows that only one feature, the standard deviation of the intertap interval from the accelerometer (`acctime_ITIsd`), was statistically significant along with the intercept ($\alpha$ = 0.05). The overall model p-value was very small, indicating that the fitted model was statistically significant.
 
 \FloatBarrier
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-#| label: tbl-3
+#| label: tbl-2
 #| tbl-cap: "Summary of the Nondominant LASSO-Selected Linear Model for Gait Time"
 
 gait_lasreg <- lm(Gait.Time ~ acctime_ITIsd + Age.numerical + acctime_Powerlog_3  + accTimeFrequency_SDSumenergy_2 + accTimeFrequency_MeanSumenergy_3, data = gait_train_df)
 #summary(gait_lasreg) #Table 3
 
 library(broom)
-library(knitr)
+#library(knitr)
 library(kableExtra)
 
 tidy_gait <- tidy(gait_lasreg)
-
-mod_sum <- summary(gait_lasreg)
-model_stats <- tibble(
-  Metric = c("R-squared", "Adjusted R-squared", "F-statistic", "Model p-value"),
-  Value = c(
-    round(mod_sum$r.squared, 4),
-    round(mod_sum$adj.r.squared, 4),
-    round(mod_sum$fstatistic[1], 3),
-    round(pf(mod_sum$fstatistic[1], mod_sum$fstatistic[2],
-             mod_sum$fstatistic[3], lower.tail = FALSE), 4)
-  )
-)
-
-model_stats <- tibble(
-  Metric = c("R-squared", "Adjusted R-squared", "F-statistic", "Model p-value"),
-  Value = c(
-    mod_sum$r.squared,
-    mod_sum$adj.r.squared,
-    mod_sum$fstatistic[1],
-    (pf(mod_sum$fstatistic[1], mod_sum$fstatistic[2],
-             mod_sum$fstatistic[3], lower.tail = FALSE))
-  )
-)
 
 kable(tidy_gait,
       #caption = "Summary of the Nondominant LASSO-Selected Linear Model for Gait Time",
@@ -310,49 +266,27 @@ kable(tidy_gait,
   kable_styling(full_width = FALSE, position = "center",
                 latex_options = c("striped"))
 ```
+
 \FloatBarrier
 
 *Ridge*
 
-Ridge regression produced the lowest test RMSE among all gait models, using $\lambda$ = 9.904288 (dominant) and $\lambda$ = 14.97415 (nondominant). Ridge retained all predictors and produced stable predictions across both feet.
+Ridge regression produced the lowest test RMSE among all gait models, using optimal $\lambda$ = 14.97415. Ridge retained all 136 predictors and produced stable predictions for nondominant feet.
 
 *Elastic Net*
 
-The average RMSE for all alpha values were very similar. However it was identified that 0.3 and 0 were the optimal values for dominant and nondominant. For the fixed seed retrain, I decided to use 0.1 instead of 0 for nondominant since ridge regression is already represented in our results table, as this was the alpha with the second lowest RMSE and a better representative of elastic net regularization. Both elastic net simulations did not perform better than their respective ridge regression in terms of test set RMSE.
+The average RMSE for all $\alpha$ values were very similar. However it was identified that 0 was the optimal value for nondominant. For the fixed seed retrain, I decided to use 0.1 instead of 0 since ridge regression is already represented in our results table, as this was the alpha with the second lowest RMSE and a better representative of elastic net regularization. The elastic net simulation performed similarly to lasso but did not perform better than ridge regression in terms of test set RMSE.
 
 *Random Forest*
 
-Random forest produced moderate training fit but competitive test RMSE, slightly behind Ridge for the nondominant foot. Some noticeably influential variables seen in [@fig-1] (in terms of percent increase in Mean Squared Error) for dominant foot in the importance plot were coefficient of variation and standard deviation of the intertap interval features (acctime_ITIcv, acctime_ITIsd), Age , Standard deviation of summed foot-tapping energy over time in the z-axis (accTimeFrequency_SDSumenergy_3), and Kurtosis signal in the x-axis (acctime_Kurtosissignal_1). Three stand out important features for the nondominant foot (shown in [@fig-2]) is the minimum and variance signal in the z-axis (acctime_Minsignal_3, acctime_Varsignal_3) as well as standard deviation of summed foot-tapping energy over time in the y-axis (accTimeFrequency_SDSumenergy_2). All top ten features (in terms of %IncMSE) in [@fig-1] and [@fig-2] were extracted from the accelerometer. 
+Random forest produced a weak training fit but competitive test RMSE, slightly behind Ridge. In the variable importance plot for the nondominant foot ([@fig-2]), the top three predictors in terms of percent increase in mean squared error (%IncMSE) were the minimum signal and variance of the z-axis accelerometer (`acctime_Minsignal_3`, `acctime_Varsignal_3`) and the standard deviation of summed foot-tapping energy in the y-axis (`accTimeFrequency_SDSumenergy_2`). Feature importance values decreased notably after these top three predictors. All of the top ten predictors (%IncMSE) were derived from accelerometer features.
 
 \FloatBarrier
-```{r, fig.width=10, fig.height=7, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Top 10 Influential Variables in Dominant Gait Time Prediction Using Random Forest", results='asis'}
-#| label: fig-1
-#| fig-cap: "Top 10 Influential Variables in Dominant Gait Time Prediction Using Random Forest"
-library(randomForest)
-set.seed(101)
 
-gaitRF2 <- randomForest(
-  Gait.Time ~ .,
-  data = subset(gait_train_df2, select = -TUG.Time), #remove the other response variable
-  mtry = (ncol(gait_train_df2) - 2)/3, #total predictors minus response and excluded var
-  importance = TRUE
-)
-#gaitRF2
-
-gaitRF2_pred <- predict(gaitRF2, newdata = subset(gait_test_df2, select = -c(Gait.Time, TUG.Time)))
-
-gaitRF2_true <- gait_test_df2$Gait.Time
-
-rmse_test <- sqrt(mean((gaitRF2_pred - gaitRF2_true)^2))
-
-#rmse_test
-
-varImpPlot(gaitRF2, n.var = 10, main="") #Figure 1
-```
-\FloatBarrier
-```{r, fig.width=10, fig.height=7, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Top 10 Influential Variables in Nondominant Gait Time Prediction Using Random Forest", results='asis'}
+```{r, fig.width=11.5, fig.height=7, echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Top 10 Influential Variables in Nondominant Gait Time Prediction Using Random Forest", results='asis'}
 #| label: fig-2
 #| fig-cap: "Top 10 Influential Variables in Nondominant Gait Time Prediction Using Random Forest"
+library(randomForest)
 set.seed(101)
 
 gaitRF <- randomForest(
@@ -373,34 +307,36 @@ rmse_test <- sqrt(mean((gaitRF_pred - gaitRF_true)^2))
 
 varImpPlot(gaitRF, n.var = 10, main="") #Figure 2
 ```
-\FloatBarrier
 
 *Bagging*
 
-The model’s performance on the test set was very similar to that of the random forest, showing limited improvement and overall weaker predictive accuracy compared to ridge regression. The variable importance plot also revealed some of the same influential features as those identified by the random forest model.
+The model’s performance on the train and test set was very similar to that of the random forest, showing limited improvement and overall slightly weaker predictive accuracy compared to ridge regression and random forest. The variable importance plot also revealed some of the same influential features as those identified by the random forest model.
 
 *Boosting*
 
-Cross-validation selected 338 trees for the dominant foot and 118 for the nondominant foot, which was then used for predictions. Boosting achieved the lowest test error among most ensemble methods, outperforming both random forest and Bagging for the dominant dataset.
+Cross-validation selected 118 trees for the nondominant foot, which was then used for predictions. Boosting achieved the second lowest test error among the ensemble methods, with performance lower than random forest but higher than bagging. 
+
+\FloatBarrier
 
 *Support Vector Machines*
 
-For the dominant foot, $\gamma$ = 0.01 and C = 10 produced the best performance. For the nondominant foot, $\gamma$ = 0.001 and C = 1 produced the lowest test RMSE of all possible combinations from the grid search.
+For the nondominant foot, $\gamma$ = 0.001 and C = 1 produced the lowest test RMSE among all combinations evaluated in the grid search. The resulting test RMSE was identical to that of random forest, the ensemble method with the lowest test error.
 
 *Principal Component Analysis*
 
-The Kaiser criterion retained 22 components, while the scree plot showed no clear elbow point but suggested roughly 2–3 components. To capture a substantial portion of the variance, selected 12 components, which explained approximately 80% of the variance in the training data. These 12 principal components were fitted in a linear model predicting gait time. Only two components were statistically significant, although the overall model provided one of the better predictive performances for the dominant foot, while predictions for the nondominant foot were less accurate. 
+The Kaiser criterion retained 22 components, while the scree plot showed no clear elbow point but suggested roughly 2–3 components. To capture a substantial portion of the variance, selected 12 components, which explained approximately 80% of the variance in the training data. These 12 principal components were fitted in a linear model predicting gait time. Only two components were statistically significant, and predictions for the nondominant foot were noticeably less accurate than other tested models.
 
 *Partial Least Squares Regression*
 
-Seven components were required to capture roughly 80% variance. PLSR models showed a large difference between training and test RMSE.
+Seven components were required to capture roughly 80% variance.The PLSR models showed a substantial discrepancy between training and test RMSE, with test RMSE considerably higher. The model achieved one of the lowest training RMSE values among all methods but one of the highest test RMSE values. 
 
 *Bland-Altman*
 
 For gait time, the Bland–Altman plot for one of the best-performing models (the nondominant LASSO-fitted model) is shown in [@fig-3]. The mean bias is slightly below zero, and all observations fall within the 95% limits of agreement. The spread of the differences increases as the average gait time increases, with points appearing more dispersed at higher values. The scale-location plot in [@fig-4] similarly shows a mild upward trend in the LOESS curve (approximately 0.5 to 1), which aligns with the Bland–Altman indication of non-constant variance; however, this increase is small and not practically substantial.
 
 \FloatBarrier
-```{r, fig.cap="Bland–Altman Plot for Nondominant Foot Gait Time (LASSO-Selected Linear Model)", echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.cap=9, fig.width=7}
+
+```{r, fig.cap="Bland–Altman Plot for Nondominant Foot Gait Time (LASSO-Selected Linear Model)", echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=7}
 #| label: fig-3
 #| fig-cap: "Bland–Altman Plot for Nondominant Foot Gait Time (LASSO-Selected Linear Model)"
 library(ggplot2)
@@ -434,58 +370,27 @@ ggplot(BAdf, aes(x = avg, y = diff)) +
   theme_minimal(base_size = 14)
 #Figure 3
 ```
+
 \FloatBarrier
-```{r, echo=FALSE, fig.cap="Scale–Location Plot for the LASSO-Selected Linear Model of Nondominant Foot Gait Time", results='asis', fig.cap=9, fig.width=7}
+
+```{r, echo=FALSE, fig.cap="Scale–Location Plot for the LASSO-Selected Linear Model of Nondominant Foot Gait Time", results='asis', fig.width=7}
 #| label: fig-4
 #| fig-cap: "Scale–Location Plot for the LASSO-Selected Linear Model of Nondominant Foot Gait Time"
 plot(gait_lasreg, which=3, sub="") #Figure 4
 ```
+
 \FloatBarrier
 
 ## TUG Results
 
-*Results for the TUG time models are presented in [@tbl-4] (dominant foot) and [@tbl-5] (nondominant foot).*
+*Results for the TUG time models are presented in [@tbl-3].*
+
+As with the gait results, details of the dominant foot models are provided in the appendix; they are excluded from the main report to maintain focus on the nondominant models, which demonstrated superior predictive performance.
 
 \FloatBarrier
+
 ```{r, echo=FALSE, results='asis'}
-#| label: tbl-4
-#| tbl-cap: "Dominant Foot TUG Time Model Summaries"
-
-tug_df <- data.frame(
-  Model = c("Lasso", "Lasso Fitted" ,"Ridge", "Elastic Net, $\\alpha = 0.1$", "Forward Selection", "Mixed Stepwise", "Random Forest", "Bagging", "Boosting", "Support Vector Machine", "PCR", "PLSR"),
-  `Number of Features Selected` = c(19, 19, 136, 39, 12, 11, 136, 136, 136, 136, 136, 136),
-  R2_Train = c(0.6219507, 0.5965, 0.5044056, 0.6103789, 0.6577, 0.6556, 0.163, 0.1529, 0.7857594, 0.3480116, 0.3859, NA),
-  RMSE_Train = c(2.536194, 2.157436, 2.903832, 2.574717, 2.153974, 2.183263, 3.773757, 3.796417, 1.909234, 3.330644, 2.884951, 1.66369),
-  RMSE_Test = c(3.150682, 4.214708, 3.242126, 3.141596, 4.458523, 4.39497, 2.728863, 2.79336, 3.064242, 3.381796, 4.043726, 4.294462)
-) #Table 4
-
-tug_df_display <- tug_df %>%
-  dplyr::mutate(
-    R2_Train = round(R2_Train, 3),
-    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
-  )
-
-kbl(
-  tug_df_display,
-  #caption = "Dominant Foot TUG Time Model Summaries",
-  col.names = c(
-    "Model",
-    "Number of Features Selected",
-    "$R^2_{\\mathrm{Train,Adj}}$",
-    "$\\mathrm{RMSE}_{\\mathrm{Train}}$",
-    "$\\mathrm{RMSE}_{\\mathrm{Test}}$"
-  ),
-  digits = 3,
-  format = "latex",
-  booktabs = TRUE,
-  escape = FALSE
-) %>%
-  kable_styling(full_width = FALSE, position = "center",
-                latex_options = c("striped"))
-```
-\FloatBarrier
-```{r, echo=FALSE, results='asis'}
-#| label: tbl-5
+#| label: tbl-3
 #| tbl-cap: "Nondominant Foot TUG Time Model Summaries"
 
 tug_df <- data.frame(
@@ -497,10 +402,21 @@ tug_df <- data.frame(
 ) #Table 5
 
 tug_df_display <- tug_df %>%
-  dplyr::mutate(
+  mutate(
     R2_Train = round(R2_Train, 3),
+    RMSE_Train = formatC(RMSE_Train, format = "f", digits = 3),
+    RMSE_Test = formatC(RMSE_Test, format = "f", digits = 3),
     R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
   )
+
+tug_df_display$Model[7] <- paste0("\\textbf{", tug_df_display$Model[7], "}")
+tug_df_display$RMSE_Test[7] <- paste0("\\textbf{", tug_df_display$RMSE_Test[7], "}")
+
+#tug_df_display <- tug_df %>%
+#  mutate(
+#    R2_Train = round(R2_Train, 3),
+#    R2_Train = ifelse(is.na(R2_Train), "--", R2_Train),
+#  )
 
 kbl(
   tug_df_display,
@@ -520,57 +436,31 @@ kbl(
   kable_styling(full_width = FALSE, position = "center",
                 latex_options = c("striped"))
 ```
-\FloatBarrier
 
 *Stepwise*
 
-After correlation filtering, 61 features were retained for dominant and 57 for nondominant foot. Both forward and mixed stepwise approaches produced nearly identical models, with the forward method selecting 12 features, just one more than mixed for dominant feet. While the two stepwise methods obtained the same 13 features for nondominant.
+After correlation filtering, 61 features were retained for the nondominant foot. Both forward and mixed stepwise approaches selected identical models, with 13 features. The selected features included a mixture of accelerometer and gyroscope variables, along with age. Despite this reduction in dimensionality, the stepwise models produced the highest test RMSE among all methods.
 
 *Lasso*
 
-Lasso effectively reduced the dimensionality of the dataset, selecting 19 features for the dominant foot at $\lambda$ = 0.340021 and 24 features at $\lambda$ = 0.2707325 for the nondominant foot out of the original 136 predictors. While the model demonstrated reasonable predictive performance, its test RMSE was higher than that of several ensemble methods, suggesting somewhat lower generalization capability. When the nonzero coefficients from Lasso were refitted into a standard linear model, the test RMSE for dominant foot increased substantially, indicating that the shrinkage imposed by Lasso played a critical role in maintaining predictive stability.
+Lasso effectively reduced the dimensionality of the dataset, selecting 24 features at best $\lambda$ = 0.2707325 for the nondominant foot out of the original 136 predictors. While the model demonstrated a reasonable fit to the training set, its test RMSE was higher than several ensemble methods. Refitting the nonzero coefficients in a standard linear model did not improve performance; the test RMSE increased relative to the Lasso model. As the refitted linear model did not provide performance gains, no further examination of its coefficient estimates was pursued
 
 *Ridge*
 
-The Ridge model showed comparable results to Lasso, delivering solid predictive performance across both training and test sets, specifically for the nondominant dataset. However, its test RMSE remained slightly higher than those achieved by the ensemble approaches. These models were obtained at $\lambda$ = 21.8568 for dominant and $\lambda$ = 23.00559 for nondominant. 
+The Ridge model showed improvement in results compared to Lasso, delivering solid predictive performance on the test set. However, its test RMSE remained slightly higher than those achieved by the ensemble approaches. These models were obtained at $\lambda$ = 23.00559 for nondominant.
 
 *Elastic Net*
 
-The dominant foot achieved its best performance at $\alpha$ = 0.1, while the nondominant foot performed best at $\alpha$ = 0, though all configurations for the dominant foot produced test RMSE values within 0.1 of each other. Once again, for the fixed seed retrain, I decided to use 0.1 instead of 0 for better representation. Both elastic net models outperformed lasso, but were not as accurate as the ensemble methods.
+The nondominant foot achieved its best performance at $\alpha$ = 0. For consistency with the fixed-seed retraining procedure used in the gait analysis, the model was retrained with $\alpha$ = 0.1, which produced similar performance. The elastic net model yielded lower test RMSE than Lasso but remained less accurate than the ensemble methods.
+
+\FloatBarrier
 
 *Random Forest*
 
-Random forest achieved the lowest test RMSE across all models, making it one of the strongest predictive approaches for TUG Time. Presented in [@fig-5] and [@fig-6], the most influential features for the dominant foot (based on percent increase in Mean Squared Error) were age, the mean intertap interval (acctime_ITImean), and the minimum and variance of the accelerometer’s z-axis signal (acctime_Minsignal_3, acctime_Varsignal_3). For the nondominant foot, Age and the minimum and variance of the z-axis signal were again among the top predictors, along with the log-transformed power in the z-axis and magnitude (acctime_Powerlog_3, acctime_Powerlog_4). Gyroscope-derived features were also more prominent in the TUG models compared to the gait random forest models.
+Random forest achieved the lowest test RMSE across all models, making it one of the strongest predictive approaches for TUG Time. Presented in [@fig-5], Age, along with the minimum and variance of the z-axis accelerometer signal (`acctime_Minsignal_3`, `acctime_Varsignal_3`) were among the top predictors for nondominant foot. Log-transformed power features from the z-axis and magnitude (`acctime_Powerlog_3`, `acctime_Powerlog_4`) also ranked highly based on percent increase in Mean Squared Error. Gyroscope-derived features were also more prominent in the TUG models compared to the gait random forest models. 
 
-\FloatBarrier
-```{r, fig.width=10, fig.height=7, echo=FALSE, fig.cap="Top 10 Influential Variables in Dominant TUG Time Prediction Using Random Forest", results='asis'}
+```{r, fig.width=11.5, fig.height=7,echo=FALSE, fig.cap="Top 10 Influential Variables in Nondominant TUG Time Prediction Using Random Forest", results='asis'}
 #| label: fig-5
-#| fig-cap: "Top 10 Influential Variables in Dominant TUG Time Prediction Using Random Forest"
-set.seed(101)
-
-tugRF2 <- randomForest(
-  TUG.Time ~ .,
-  data = subset(tug_train_df2, select = -Gait.Time), #remove the other response variable
-  mtry = (ncol(tug_train_df2) - 2)/3, #total predictors minus response and excluded var
-  importance = TRUE
-)
-#tugRF2
-
-tugRF2_pred <- predict(tugRF2, newdata = subset(tug_test_df2, select = -c(Gait.Time, TUG.Time)))
-
-tugRF2_true <- tug_test_df2$TUG.Time
-
-rmse_test <- sqrt(mean((tugRF2_pred - tugRF2_true)^2))
-
-#rmse_test
-
-varImpPlot(tugRF2, n.var = 10, main="") #Figure 5
-
-#head(df)
-```
-\FloatBarrier
-```{r, fig.width=10, fig.height=7,echo=FALSE, fig.cap="Top 10 Influential Variables in Nondominant TUG Time Prediction Using Random Forest", results='asis'}
-#| label: fig-6
 #| fig-cap: "Top 10 Influential Variables in Nondominant TUG Time Prediction Using Random Forest"
 set.seed(101)
 
@@ -592,35 +482,37 @@ rmse_test <- sqrt(mean((tugRF_pred - tugRF_true)^2))
 
 varImpPlot(tugRF, n.var = 10, main="") #Figure 6
 ```
+
 \FloatBarrier
 
 *Bagging*
 
-Bagging achieved the second-lowest test RMSE behind random forest, while still exhibiting low training variance ($R^2_{Train, Adj}$).
+Bagging achieved the third-lowest test RMSE just behind the other two ensemble methods involved, while still exhibiting low training variance ($R^2_{Train, Adj}$).
 
 *Boosting*
 
-Cross-validation identified the optimal number of trees as 660 for the dominant foot and 417 for the nondominant foot. Boosting produced predictive results slightly behind the other ensemble methods but still among the top-performing models overall.
+Cross-validation identified 417 trees as the optimal number for the nondominant foot. The boosting model produced test RMSE slightly higher than random forest, ranking among the better-performing models overall.
 
 *Support Vector Machines*
 
-The dominant foot achieved its best performance with $\gamma$ = 0.001 and C = 1, while the nondominant foot performed best with $\gamma$ = 0.01 and C = 10. However, the nondominant model displayed classic overfitting. In contrast, the dominant foot model demonstrated a more balanced generalization.
+The nondominant foot achieved its lowest test RMSE with $\gamma$ = 0.01 and C = 10. The model exhibited very low training RMSE, while the test RMSE was substantially higher, indicating a large discrepancy between training and test performance.
 
 *Principal Component Regression*
 
-The Kaiser criterion suggested retaining 22–23 components for the dominant and nondominant feet, while the scree plot indicated an elbow point around 2–3 components for both. To capture a substantial portion of the variance, 12 components were selected to explain 80% of the total variance in the training data. The 12 components were then used in a linear model predicting TUG Time, and 4–5 of them were found to be statistically significant based on their p-values.
+The Kaiser criterion suggested retaining 22 components, while the scree plot indicated an elbow point around 2–3 components. To capture a substantial portion of the variance, 12 components were selected to explain 80% of the total variance in the training data. These components were used in a linear model to predict TUG Time, and 4 of them were statistically significant based on their p-values. The principal component regression model produced higher test RMSE than the ensemble methods.
 
 *Partial Least Square Regression*
 
-For PLSR, the optimal number of components was identified as six for the dominant foot and five for the nondominant foot; this amount was required to capture approximately 80% of the variance in the training data. Similar to the gait time models, the PLSR models for TUG exhibited classic overfitting, with substantially lower training RMSE compared to the test RMSE.
+For PLSR, the optimal number of components was identified as five for the nondominant foot; this amount was required to capture approximately 80% of the variance in the training data. The PLSR model exhibited overfitting, with training RMSE substantially lower than test RMSE, consistent with the pattern observed in the gait time model. 
 
 *Bland-Altman*
 
-For TUG time, the Bland–Altman plot for the best-performing model (the nondominant random forest model) is shown in [@fig-7]. The mean bias is slightly below zero, and the differences remain relatively stable across the range of average TUG values. Two observations fall outside the 95% limits of agreement, while all remaining points lie within the expected range.
+For TUG time, the Bland–Altman plot for the best-performing model (the nondominant random forest model) is shown in [@fig-6]. The mean bias is slightly below zero, and the differences remain relatively stable across the range of average TUG values. Two observations fall outside the 95% limits of agreement, while all remaining points lie within the expected range.
 
 \FloatBarrier
+
 ```{r, fig.cap="Bland–Altman Plot for Nondominant Foot TUG Time (Random Forest Model)", echo=FALSE, results='asis'}
-#| label: fig-7
+#| label: fig-6
 #| fig-cap: "Bland–Altman Plot for Nondominant Foot TUG Time (Random Forest Model)"
 #Random Forest
 observed <- tug_test_df$TUG.Time #Also y_test
@@ -650,11 +542,10 @@ ggplot(BAdf, aes(x = avg, y = diff)) +
   ) +
   theme_minimal(base_size = 14) #figure 7
 ```
+
 \FloatBarrier
 
 ## Discussion
-
-*For further interpretation, we will mainly focus on the nondominant foot results because they achieved lower test RMSE and therefore provided stronger predictive performance.*
 
 Although Batula et al. did not reach a clear conclusion regarding dominant versus nondominant feet, their findings on hand movements still offer relevant insight. All participants in their study were right-handed, meaning their left-right hand comparisons effectively reflected dominant versus nondominant limb use. They found that the dominant hand showed more efficient motor activation patterns during both motor execution and motor imagery. This aligns with broader evidence that dominant limbs generally possess more practiced neural pathways and greater cortical representation [@batula2017comparison]. These mechanisms may help explain why the dominant foot in our tapping test demonstrated slightly different performance compared to the nondominant foot.
 
@@ -664,17 +555,17 @@ Although not tested in this analysis, this subtle difference in foot-tapping per
 
 Focusing now on the nondominant foot findings, the additional features in the mixed stepwise model slightly improved variance explained, reducing training RMSE and increasing $R^2_{Train, Adj}$. However, forward selection produced a lower test RMSE, indicating better generalization to unseen data. Overall, stepwise regression offered a balance between interpretability and predictive accuracy in this high-dimensional setting. Both approaches showed signs of overfitting, achieving low training RMSE but noticeably higher test RMSE, suggesting that stepwise procedures, while useful for variable reduction, may have limited generalizability for predicting gait and TUG time.
 
-For the gait model, Lasso regression performed well: the nearly identical test RMSE between the Lasso model and the refitted linear model suggests that the simplified linear version preserved predictive accuracy while drastically reducing the number of features. In contrast, the TUG Lasso model showed weaker predictive performance. When the nonzero coefficients were refitted into a standard linear model, test RMSE increased more noticeably, indicating that the shrinkage imposed by Lasso was essential for stabilizing predictions.
+For the gait model, Lasso regression performed well. The nearly identical test RMSE between the Lasso model and the refitted linear model suggests that the simplified linear version preserved predictive accuracy while drastically reducing the number of features. In contrast, the TUG Lasso model showed weaker predictive performance. When the nonzero coefficients were refitted into a standard linear model, test RMSE increased more noticeably, indicating that the shrinkage imposed by Lasso was more essential for stabilizing predictions with TUG time.
 
 Ridge regression did not reduce the number of predictors and explained less variance in the training set than some alternatives, but it provided stable and accurate predictions. Ridge achieved the lowest test RMSE for the gait model, though it underperformed relative to ensemble methods for TUG. This suggests that Ridge captured much of the underlying signal but may not generalize as effectively as more flexible models in certain settings.
 
-Elastic Net closely mirrored the results of the Lasso model for gait. For TUG and gait, the nondominant Elastic Net models did not outperform Ridge in terms of test RMSE, though Elastic Net offered a modest improvement over Lasso for TUG time. Both approaches provided a balance between sparsity and predictive consistency.
+Elastic Net closely mirrored the Lasso model for gait. For TUG and gait measures, the nondominant Elastic Net models did not surpass Ridge regression in terms of test RMSE, as simulations indicated that $\alpha$ = 0 (equivalent to Ridge) produced the most accurate model. Nonetheless, Elastic Net offered a modest improvement over Lasso in predicting TUG time, highlighting its ability to balance sparsity with predictive consistency.
 
 Across the three ensemble methods tested, performance was relatively similar, with random forest yielding the strongest generalization to unseen data. These findings reinforce that ensemble approaches consistently achieved the best predictive accuracy for TUG time compared to all other modeling techniques. Notably, most influential features from random forest originated from the accelerometer, while gyroscope-derived variables were less impactful than expected. Time-domain features also appeared more influential than frequency- or time-frequency–based variables. This indicates that basic movement magnitude and time-based characteristics provide stronger predictive information for TUG and gait time than more complex frequency or time–frequency features. Despite strong predictive performance, the random forest model explained relatively little variance in the training set, indicating a model that generalized well but did not capture as much within-sample structure as other methods.
 
 Grid search results for the nondominant foot showed that the gait random forest model produced a balanced fit with strong predictive performance, second only to Ridge regression. In contrast, the TUG random forest model showed extreme overfitting, with near-perfect $R^2_{Train, Adj}$ and substantially high test RMSE, and would not be considered a reliable predictive model.
 
-For dimensionality reduction approaches, PCR and PLSR achieved some of the lowest training RMSE values. PLSR in particular showed exceptionally strong training performance with less components making this method more efficient than PCR; however, the large gap between train and test RMSE indicated substantial overfitting. PCR provided reasonable predictive performance while reducing dimensionality, but it did not surpass the stronger regularization or ensemble approaches. Overall, PLSR offered a compact representation of the data but generalized less effectively than PCR.
+For dimensionality reduction approaches, PCR and PLSR achieved some of the lowest training RMSE values. PLSR in particular showed exceptionally strong training performance with less components making this method more efficient than PCR; however, the large gap between train and test RMSE indicated substantial overfitting. PCR provided reasonable predictive performance while reducing dimensionality, but it did not surpass the stronger regularization or ensemble approaches. Overall, while PLSR produced a more compact representation of the predictors, PCR ultimately generalized more effectively on unseen data.
 
 The Bland–Altman plot for gait time showed that the best linear model (the non-zero-coefficients fitted model) slightly overpredicted on average, though the overall bias was minimal. The spread of differences increased at higher gait times, suggesting some degree of heteroskedasticity and indicating that the model performed less consistently for participants with longer gait times. A similar pattern was suggested in the residual diagnostic plots, which showed mild increases in variance at larger fitted values.
 
@@ -684,11 +575,11 @@ In contrast, the Bland–Altman plot for TUG time using the nondominant random f
 
 ## Conclusion
 
-For gait time, the nondominant Lasso-selected linear model provided the best balance between interpretability and predictive performance. This model achieved an average prediction error of 0.795 seconds, indicating strong accuracy while using only 5 predictors compared to the 136 required by Ridge regression. Although Ridge achieved the lowest test RMSE, the small improvement in accuracy did not outweigh the substantial gain in model simplicity and interpretability offered by Lasso. Consequently, the Lasso-based linear model is more practical and well-suited for clinical or applied settings.
+For gait time, the nondominant foot Lasso-selected linear model provided the best balance between interpretability and predictive performance. It achieved a test RMSE of approximately 0.795 seconds, indicating strong accuracy while using only 5 predictors compared to the 136 required by Ridge regression. Although Ridge achieved the lowest test RMSE overall, its marginal improvement in accuracy did not outweigh the major gains in simplicity and interpretability provided by the Lasso model. Consequently, the Lasso-based linear model is more practical and better suited for clinical or applied settings.
 
-For TUG time, the nondominant-foot random forest model delivered the strongest predictive performance on unseen data, with an average prediction error of approximately 2.5 seconds. While this value appears larger than the gait time RMSE, it is proportional to the substantially longer duration of the TUG test, making the model’s accuracy reasonable in context. Although random forest does not provide interpretable coefficients or p-values, its variable importance measures identified the most influential features, offering meaningful insight into the movement characteristics associated with TUG performance.
+For TUG time, the nondominant foot Random Forest model delivered the strongest predictive performance on unseen data, with a test RMSE of roughly 2.5 seconds. While this value appears larger than the gait time RMSE, it is proportional to the substantially longer duration of the TUG test, making the model’s accuracy reasonable in context. Although Random Forest does not provide interpretable coefficients or p-values, its variable importance rankings identified the most influential features, providing meaningful insight into movement characteristics associated with TUG performance. These results indicate that accelerometer-derived features, particularly those capturing time-domain dynamics, are more informative for predicting TUG performance than gyroscope or frequency-based measures.
 
-Together, these findings illustrate the complementary strengths of sparse linear models and ensemble methods for predicting functional mobility outcomes from high-dimensional wearable-sensor data.
+Together, these findings highlight the complementary value of a sparse linear model derived from Lasso-selected features and ensemble methods for predicting functional mobility outcomes from high-dimensional wearable-sensor data.
 
 \pagebreak
 

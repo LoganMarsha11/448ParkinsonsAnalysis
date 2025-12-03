@@ -42,16 +42,11 @@ library(caret)
 set.seed(101)
 
 gait_train_index <- createDataPartition(ndom_df$`Gait Time`, p = 0.7, list = FALSE)
-#gait_train_index <- createDataPartition(ndom_df$Sex, p = 0.7, list = FALSE)
 gait_train_df <- ndom_df[gait_train_index, ]
 gait_test_df  <- ndom_df[-gait_train_index, ]
 
 names(gait_train_df) <- make.names(names(gait_train_df), unique = TRUE)
 names(gait_test_df) <- make.names(names(gait_test_df), unique = TRUE)
-
-#prop.table(table(ndom_df$Sex))
-#prop.table(table(gait_train_df$Sex))
-#prop.table(table(gait_test_df$Sex))
 ```
 
 ```{r}
