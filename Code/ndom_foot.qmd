@@ -500,7 +500,6 @@ gaitRF <- randomForest(
 )
 gaitRF
 
-
 gaitRF_pred <- predict(gaitRF, newdata = subset(gait_test_df, select = -c(Gait.Time, TUG.Time)))
 
 gaitRF_true <- gait_test_df$Gait.Time
@@ -534,6 +533,7 @@ gaitBag <- randomForest(
   importance = TRUE
 )
 gaitBag
+#plot(gaitBag) OOB Error plot
 
 gaitBag_pred <- predict(gaitBag, newdata = subset(gait_test_df, select = -c(Gait.Time, TUG.Time)))
 
@@ -592,6 +592,13 @@ tugRF <- randomForest(
 )
 tugRF
 
+set.seed(101)
+tugRF <- randomForest(
+  TUG.Time ~ .,
+  data = subset(tug_train_df, select = -Gait.Time), 
+  mtry = 50, 
+  importance = TRUE
+)
 
 tugRF_pred <- predict(tugRF, newdata = subset(tug_test_df, select = -c(Gait.Time, TUG.Time)))
 
